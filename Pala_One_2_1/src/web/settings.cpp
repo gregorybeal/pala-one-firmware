@@ -97,7 +97,7 @@ static void handleSettings() {
   String out = webPageStart(
     D_WEB_SETTINGS_TITLE,
     D_WEB_SETTINGS_SUBTITLE_PREFIX FW_VERSION D_WEB_SETTINGS_SUBTITLE_SUFFIX,
-    "<a href='/'>" D_WEB_NAV_HOME "</a><a href='/screensavers'>" D_WEB_NAV_SCREENSAVER "</a><a href='/kosync'>" D_WEB_NAV_SYNC "</a>"
+    "<a href='/'>" D_WEB_NAV_HOME "</a><a href='/screensavers'>" D_WEB_NAV_SCREENSAVER "</a><a href='/kosync'>" D_WEB_NAV_SYNC "</a><a href='/wifi'>" D_WEB_NAV_WIFI "</a>"
   );
   out.reserve(out.length() + 4500);
 

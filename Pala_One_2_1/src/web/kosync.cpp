@@ -47,7 +47,7 @@ static void renderPage(const String& banner, bool bannerIsError) {
   String out = webPageStart(
     D_WEB_KS_TITLE,
     D_WEB_KS_SUBTITLE,
-    "<a href='/'>" D_WEB_NAV_HOME "</a><a href='/files'>" D_WEB_NAV_FILES "</a><a href='/settings'>" D_WEB_NAV_SETTINGS "</a>"
+    "<a href='/'>" D_WEB_NAV_HOME "</a><a href='/files'>" D_WEB_NAV_FILES "</a><a href='/settings'>" D_WEB_NAV_SETTINGS "</a><a href='/wifi'>" D_WEB_NAV_WIFI "</a>"
   );
   out.reserve(out.length() + 4000);
 
@@ -60,7 +60,8 @@ static void renderPage(const String& banner, bool bannerIsError) {
   // Syncing needs the radio, and the radio needs stored credentials. Say so
   // up front rather than letting the device fail at the reader menu.
   if (!WifiCreds::has()) {
-    out += "<div class='banner-warn'>" D_WEB_KS_NO_WIFI "</div>";
+    out += "<div class='banner-warn'>" D_WEB_KS_NO_WIFI
+           " <a class='link' href='/wifi'>" D_WEB_KS_NO_WIFI_LINK "</a></div>";
   }
 
   // --- account ---

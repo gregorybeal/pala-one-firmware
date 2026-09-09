@@ -171,6 +171,7 @@
 #define D_WEB_NAV_SCREENSAVER       "Screensaver"
 #define D_WEB_NAV_SETTINGS          "Settings"
 #define D_WEB_NAV_SYNC              "Sync"
+#define D_WEB_NAV_WIFI              "Wi-Fi"
 #define D_WEB_NAV_FACTORY_RESET     "Factory reset"
 #define D_WEB_NAV_BACK              "Back"
 
@@ -533,7 +534,8 @@
 // ----------------------------------------------------------------------------
 #define D_WEB_KS_TITLE              "KOReader sync"
 #define D_WEB_KS_SUBTITLE           "Keep your reading position in step with your other KOReader devices."
-#define D_WEB_KS_NO_WIFI            "&#9888; No Wi-Fi credentials stored. Syncing needs them &mdash; provision Wi-Fi from the web installer first."
+#define D_WEB_KS_NO_WIFI            "&#9888; No Wi-Fi networks saved. Syncing needs one."
+#define D_WEB_KS_NO_WIFI_LINK       "Add a network"
 #define D_WEB_KS_ACCOUNT_HEADING    "Sync account"
 #define D_WEB_KS_ACCOUNT_INTRO      "Use the same account as KOReader. The public server at sync.koreader.rocks works out of the box, or point this at your own."
 #define D_WEB_KS_SERVER_LABEL       "Server"
@@ -597,5 +599,37 @@
 #define D_SYNC_HINT_CHOOSE          "1x move  2x pick  3x back"
 #define D_SYNC_HINT_EXIT            "any press: back"
 #define D_MENU_READER_SYNC          "Sync progress"
+
+// ----------------------------------------------------------------------------
+//  Saved Wi-Fi networks (web/wifi.cpp)
+//
+//  D_WEB_WIFI_CONFIRM_FORGET is inlined into a JS confirm() and the rest land
+//  in single-quoted HTML attributes, so none of these may contain a single
+//  quote or a backslash.
+// ----------------------------------------------------------------------------
+#define D_WEB_WIFI_TITLE            "Wi-Fi networks"
+#define D_WEB_WIFI_SUBTITLE         "Networks the device joins for uploads, firmware updates and reading sync."
+#define D_WEB_WIFI_SAVED_HEADING    "Saved networks"
+#define D_WEB_WIFI_SAVED_INTRO      "The device tries the one it used last, then scans and joins the strongest saved network in range. The order below is not a priority order."
+#define D_WEB_WIFI_NONE             "No networks saved yet."
+#define D_WEB_WIFI_SECURED          "Password saved"
+#define D_WEB_WIFI_OPEN             "Open network"
+#define D_WEB_WIFI_LAST_USED        "used last"
+#define D_WEB_WIFI_FORGET_BUTTON    "Forget"
+#define D_WEB_WIFI_CONFIRM_FORGET   "Forget this network?"
+#define D_WEB_WIFI_ADD_HEADING      "Add a network"
+#define D_WEB_WIFI_ADD_INTRO        "Type the network name exactly as it appears, including capitals. Adding a name that is already saved replaces its password."
+#define D_WEB_WIFI_SSID_LABEL       "Network name"
+#define D_WEB_WIFI_PASS_LABEL       "Password"
+#define D_WEB_WIFI_PASS_HINT        "Leave blank for an open network. Saved passwords are never shown back on this page."
+#define D_WEB_WIFI_ADD_BUTTON       "Add network"
+#define D_WEB_WIFI_CAPACITY_HINT    "Up to 5 networks. Adding a sixth replaces the oldest."
+#define D_WEB_WIFI_MSG_ADDED        "Network added."
+#define D_WEB_WIFI_MSG_ADDED_EVICTED "Network added. The oldest saved network was removed to make room."
+#define D_WEB_WIFI_MSG_UPDATED      "Password updated for that network."
+#define D_WEB_WIFI_MSG_FORGOTTEN    "Network forgotten."
+#define D_WEB_WIFI_ERR_NO_SSID      "Enter a network name."
+#define D_WEB_WIFI_ERR_SSID_LONG    "That network name is too long."
+#define D_WEB_WIFI_ERR_PASS_LONG    "That password is too long."
 
 #endif  // PALA_LANG_EN_H

@@ -87,6 +87,7 @@
 #include "src/storage/list_items.h"
 #include "src/storage/page_cache.h"
 #include "src/storage/statistics.h"
+#include "src/storage/wifi_creds.h"
 #include "src/ui/font.h"
 #include "src/ui/pala_api_impl.h"
 #include "src/ui/reader.h"
@@ -200,6 +201,7 @@ void setup() {
   Screensavers::loadSettings();
   Statusbar::loadSettings();
   Gestures::loadSettings();
+  WifiCreds::loadSettings();
   Kosync::loadSettings();
   HeaderTitle::loadSettings();
   // Sleep::loadSettings() and Lock::loadSettings() already ran earlier in

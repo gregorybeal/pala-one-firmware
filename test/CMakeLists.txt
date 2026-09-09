@@ -26,6 +26,7 @@ set(SUT_SRC
   ${FW_SRC}/pure/hold_gesture.cpp
   ${FW_SRC}/pure/streak_log.cpp
   ${FW_SRC}/pure/kosync_codec.cpp
+  ${FW_SRC}/pure/wifi_list_codec.cpp
   ${FW_SRC}/storage/book_metadata.cpp
   ${FW_SRC}/storage/list_items.cpp
 )
@@ -46,6 +47,7 @@ set(TEST_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/test_hold_gesture.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test_streak_log.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test_kosync_codec.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/test_wifi_list_codec.cpp
 )
 
 add_executable(host_tests ${SUT_SRC} ${TEST_SRC})

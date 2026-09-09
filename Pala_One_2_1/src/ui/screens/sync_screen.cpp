@@ -19,9 +19,6 @@
 #include "src/ui/screens/reader_screen.h"
 #include "src/ui/widgets.h"
 
-// Matches UpdateScreen — long enough for a slow router, short enough that a
-// dead network doesn't feel like a hang.
-static constexpr uint32_t kStaTimeoutMs = 15000;
 
 // ----------------------------------------------------------------------------
 //  Helpers
@@ -125,7 +122,7 @@ void SyncScreen::onIdleTick() {
     return;
   }
   if (r == WifiStaResult::Failed ||
-      (uint32_t)(millis() - staStartMs_) > kStaTimeoutMs) {
+      (uint32_t)(millis() - staStartMs_) > wifiStaBudgetMs()) {
     teardownWifi();
     phase_ = Phase::ConnFailed;
     draw();

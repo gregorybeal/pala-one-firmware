@@ -46,6 +46,19 @@ Besides the SoftAP captive portal, the firmware supports **Improv Serial** Wi-Fi
 
 Saved credentials let the device join your network in **Station mode** the next time it enters the web UI / upload mode; if none are saved (or the join fails) it falls back to the open SoftAP at `192.168.4.1`.
 
+### Multiple networks
+
+Up to **5** networks can be saved, so the device works at home, at work and off a phone hotspot without being re-provisioned each time. Improv adds to that list rather than replacing it, and networks can also be added from the device's own web UI under **Wi-Fi** — no USB cable needed once you can reach the page at all (the SoftAP fallback is always available).
+
+Which one it joins is decided automatically, and the list is **not** a priority order:
+
+1. the network that connected last time, tried immediately — no scan, so being at home is as quick as it was with a single stored network
+2. failing that, a scan, then the saved networks actually on the air, strongest first
+
+If none of your networks are in range the scan says so at once, rather than working through an association timeout per saved network. Adding a network whose name is already saved replaces that network's password instead of creating a duplicate; adding a sixth network evicts the oldest.
+
+Saved passwords are never displayed back in the web UI — only whether a network has one.
+
 ## OTA firmware updates
 
 Once the device has Wi-Fi credentials stored (see [Wi-Fi provisioning](#wi-fi-provisioning-improv)), firmware updates can be installed wirelessly — no USB cable, no computer required.
@@ -139,8 +152,10 @@ Kobo, Kindle or PocketBook, using KOReader's own
 3. Tick **Enable sync** and save. Only the MD5 of the password is stored on the
    device, never the password itself — that digest is exactly what the protocol
    sends as `x-auth-key`.
-4. Wi-Fi credentials must already be provisioned (see
-   [Wi-Fi provisioning](#wi-fi-provisioning-improv)).
+4. At least one Wi-Fi network must be saved (see
+   [Wi-Fi provisioning](#wi-fi-provisioning-improv) and
+   [Multiple networks](#multiple-networks)). The sync page links straight to
+   the Wi-Fi page when none is.
 
 ### Use
 
@@ -428,6 +443,7 @@ Return from `app_main` to exit back to the Apps menu. Apps decide their own exit
 - Custom screensaver image
 - Adjustable idle sleep timeout
 - Wi-Fi provisioning (Improv) + captive-portal web UI
+- Up to 5 saved Wi-Fi networks, joined automatically
 - OTA firmware updates over Wi-Fi (see [OTA firmware updates](#ota-firmware-updates))
 - User-installable apps (see [Apps](#apps))
 - Deep sleep mode

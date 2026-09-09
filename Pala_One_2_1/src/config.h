@@ -56,6 +56,15 @@ static const int SCREEN_W = 250;
 static const int SCREEN_H = 122;
 
 static const uint8_t MAX_BOOKMARKS = 12;
+
+// Saved Wi-Fi networks. The device tries the last one that worked, then scans
+// and picks the strongest saved network actually on the air — so this is a
+// capacity limit, not a priority list. SSID/passphrase caps are the 802.11 and
+// WPA2 maxima; the encoded blob is length-prefixed (pure/wifi_list_codec.h) so
+// a short SSID costs a short entry.
+static const uint8_t MAX_WIFI_NETWORKS = 5;
+static const int     MAX_WIFI_SSID     = 32;
+static const int     MAX_WIFI_PASS     = 63;
 static const int MAX_BOOKS = 80;
 static const int MAX_FOLDERS = 32;
 static const int MAX_FOLDER_PATH = 63;  // chars, excluding null

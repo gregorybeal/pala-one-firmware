@@ -167,6 +167,7 @@
 #define D_WEB_NAV_SCREENSAVER       "Salvapantallas"
 #define D_WEB_NAV_SETTINGS          "Ajustes"
 #define D_WEB_NAV_SYNC              "Sincronizar"
+#define D_WEB_NAV_WIFI              "Wi-Fi"
 #define D_WEB_NAV_FACTORY_RESET     "Reinicio de fábrica"
 #define D_WEB_NAV_BACK              "Atrás"
 
@@ -522,7 +523,8 @@
 // ----------------------------------------------------------------------------
 #define D_WEB_KS_TITLE              "Sincronizacion KOReader"
 #define D_WEB_KS_SUBTITLE           "Mantenga su posicion de lectura al dia con sus otros dispositivos KOReader."
-#define D_WEB_KS_NO_WIFI            "&#9888; No hay credenciales Wi-Fi guardadas. La sincronizacion las necesita &mdash; configure Wi-Fi desde el instalador web primero."
+#define D_WEB_KS_NO_WIFI            "&#9888; No hay redes Wi-Fi guardadas. La sincronizacion necesita una."
+#define D_WEB_KS_NO_WIFI_LINK       "Agregar una red"
 #define D_WEB_KS_ACCOUNT_HEADING    "Cuenta de sincronizacion"
 #define D_WEB_KS_ACCOUNT_INTRO      "Use la misma cuenta que en KOReader. El servidor publico sync.koreader.rocks funciona sin configuracion, o apunte a uno propio."
 #define D_WEB_KS_SERVER_LABEL       "Servidor"
@@ -586,5 +588,37 @@
 #define D_SYNC_HINT_CHOOSE          "1x mover  2x elegir  3x atras"
 #define D_SYNC_HINT_EXIT            "cualquier pulsacion: atras"
 #define D_MENU_READER_SYNC          "Sincronizar"
+
+// ----------------------------------------------------------------------------
+//  Redes Wi-Fi guardadas (web/wifi.cpp)
+//
+//  D_WEB_WIFI_CONFIRM_FORGET se inserta en un confirm() de JS y el resto en
+//  atributos HTML con comillas simples, por lo que ninguna puede contener
+//  comilla simple ni barra invertida.
+// ----------------------------------------------------------------------------
+#define D_WEB_WIFI_TITLE            "Redes Wi-Fi"
+#define D_WEB_WIFI_SUBTITLE         "Redes a las que el dispositivo se conecta para subir libros, actualizar y sincronizar."
+#define D_WEB_WIFI_SAVED_HEADING    "Redes guardadas"
+#define D_WEB_WIFI_SAVED_INTRO      "El dispositivo prueba la ultima que uso, luego busca y se conecta a la red guardada mas fuerte que encuentre. El orden de abajo no es un orden de prioridad."
+#define D_WEB_WIFI_NONE             "Todavia no hay redes guardadas."
+#define D_WEB_WIFI_SECURED          "Contrasena guardada"
+#define D_WEB_WIFI_OPEN             "Red abierta"
+#define D_WEB_WIFI_LAST_USED        "usada por ultima vez"
+#define D_WEB_WIFI_FORGET_BUTTON    "Olvidar"
+#define D_WEB_WIFI_CONFIRM_FORGET   "Olvidar esta red?"
+#define D_WEB_WIFI_ADD_HEADING      "Agregar una red"
+#define D_WEB_WIFI_ADD_INTRO        "Escriba el nombre de la red tal como aparece, incluidas las mayusculas. Agregar un nombre ya guardado reemplaza su contrasena."
+#define D_WEB_WIFI_SSID_LABEL       "Nombre de la red"
+#define D_WEB_WIFI_PASS_LABEL       "Contrasena"
+#define D_WEB_WIFI_PASS_HINT        "Dejelo vacio para una red abierta. Las contrasenas guardadas nunca se muestran en esta pagina."
+#define D_WEB_WIFI_ADD_BUTTON       "Agregar red"
+#define D_WEB_WIFI_CAPACITY_HINT    "Hasta 5 redes. Agregar una sexta reemplaza la mas antigua."
+#define D_WEB_WIFI_MSG_ADDED        "Red agregada."
+#define D_WEB_WIFI_MSG_ADDED_EVICTED "Red agregada. Se elimino la red guardada mas antigua para hacer espacio."
+#define D_WEB_WIFI_MSG_UPDATED      "Contrasena actualizada para esa red."
+#define D_WEB_WIFI_MSG_FORGOTTEN    "Red olvidada."
+#define D_WEB_WIFI_ERR_NO_SSID      "Ingrese un nombre de red."
+#define D_WEB_WIFI_ERR_SSID_LONG    "Ese nombre de red es demasiado largo."
+#define D_WEB_WIFI_ERR_PASS_LONG    "Esa contrasena es demasiado larga."
 
 #endif  // PALA_LANG_ES_LA_H

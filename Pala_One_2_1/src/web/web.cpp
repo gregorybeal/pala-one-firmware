@@ -11,6 +11,7 @@
 #include "src/web/screensavers.h"
 #include "src/web/settings.h"
 #include "src/web/upload.h"
+#include "src/web/wifi.h"
 
 // ============================================================================
 //  Web routes — split per topic across the files in this directory. This
@@ -25,6 +26,7 @@ void registerWebRoutes() {
   registerListRoutes();        // /list, /list-clear-done
   registerSettingsRoutes();    // /settings, /del-sleep
   registerKosyncRoutes();      // /kosync, /kosync-doc, /kosync-book
+  registerWifiRoutes();        // /wifi, /wifi-forget
   registerFindRoutes();        // /read, /readbook-text, /jumpoffset
   registerScreensaverRoutes(); // /screensavers and subroutes
   registerUploadRoutes();      // /upload, /upload-sleep (legacy)

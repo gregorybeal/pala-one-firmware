@@ -73,7 +73,7 @@ static void handleRoot() {
   String out = webPageStart(
     D_WEB_HOME_TITLE,
     subtitle,
-    "<a href='/files'>" D_WEB_NAV_FILES "</a><a href='/bookmarks'>" D_WEB_NAV_BOOKMARKS "</a><a href='/list'>" D_WEB_NAV_LIST "</a><a href='/screensavers'>" D_WEB_NAV_SCREENSAVER "</a><a href='/settings'>" D_WEB_NAV_SETTINGS "</a><a href='/kosync'>" D_WEB_NAV_SYNC "</a><a href='/reset'>" D_WEB_NAV_FACTORY_RESET "</a>"
+    "<a href='/files'>" D_WEB_NAV_FILES "</a><a href='/bookmarks'>" D_WEB_NAV_BOOKMARKS "</a><a href='/list'>" D_WEB_NAV_LIST "</a><a href='/screensavers'>" D_WEB_NAV_SCREENSAVER "</a><a href='/settings'>" D_WEB_NAV_SETTINGS "</a><a href='/kosync'>" D_WEB_NAV_SYNC "</a><a href='/wifi'>" D_WEB_NAV_WIFI "</a><a href='/reset'>" D_WEB_NAV_FACTORY_RESET "</a>"
   );
 
   out += storageCardHtml();

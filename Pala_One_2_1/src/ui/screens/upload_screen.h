@@ -1,6 +1,8 @@
 #ifndef PALA_UI_SCREENS_UPLOAD_SCREEN_H
 #define PALA_UI_SCREENS_UPLOAD_SCREEN_H
 
+#include <Arduino.h>          // String
+
 #include "src/hal/wifi.h"    // WifiSession (cached for draw())
 #include "src/ui/screen.h"
 
@@ -27,6 +29,7 @@ private:
   uint32_t    startedMs_     = 0;    // for the auto-exit timer (set on entry to Ready)
   uint32_t    staStartedMs_  = 0;    // when wifiStaBegin() was called (for the 5s timeout)
   WifiSession net_;                  // cached session info shown by draw()
+  String      connectingSsid_;       // SSID last painted on the connecting splash
 
   void beginSession();
   void enterReady();           // server.begin + draw — used after STA success or AP setup
