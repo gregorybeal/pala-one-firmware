@@ -5,6 +5,7 @@
 #include "src/web/chrome.h"
 #include "src/web/files.h"
 #include "src/web/find.h"
+#include "src/web/kosync.h"
 #include "src/web/list.h"
 #include "src/web/reset.h"
 #include "src/web/screensavers.h"
@@ -23,6 +24,7 @@ void registerWebRoutes() {
   registerBookmarksRoutes();   // /bookmarks, /viewbm, /delbm, /exportbm
   registerListRoutes();        // /list, /list-clear-done
   registerSettingsRoutes();    // /settings, /del-sleep
+  registerKosyncRoutes();      // /kosync, /kosync-doc, /kosync-book
   registerFindRoutes();        // /read, /readbook-text, /jumpoffset
   registerScreensaverRoutes(); // /screensavers and subroutes
   registerUploadRoutes();      // /upload, /upload-sleep (legacy)

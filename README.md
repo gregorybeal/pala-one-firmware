@@ -93,6 +93,99 @@ Out of the box, a first visit defaults to **light**. To change the firmware defa
 
 The build-time default only affects the *first* visit from a given browser — once the toggle is used, the localStorage choice wins from then on.
 
+## EPUB support
+
+Books can be uploaded as plain `.txt` or as `.epub`. The device itself still only
+ever stores and reads UTF-8 plain text — the EPUB is unpacked and flattened **in
+your browser**, on the upload page, and the resulting text is what gets sent to
+`/books`.
+
+That split is deliberate. It keeps the firmware free of a ZIP inflater and an
+XHTML parser (neither of which fits comfortably in the RAM budget alongside the
+page-offset table), and it means the paginator, page cache, bookmarks and
+byte-offset progress model are completely unchanged by the feature.
+
+What survives the conversion:
+
+- spine order, including EPUB 3 documents, with `linear="no"` items skipped
+- paragraph and heading breaks; everything else (markup, CSS, scripts, the
+  navigation document) is dropped
+- `dc:title` and `dc:creator`, used to name the stored file — an EPUB titled
+  *The Wind in the Willows* by Kenneth Grahame lands as
+  `The Wind in the Willows - Kenneth Grahame.txt`
+
+The converter uses only native browser APIs (`DecompressionStream`, `DOMParser`),
+because the SoftAP captive portal has no route to the internet and no CDN is
+reachable. It needs Chrome/Edge 103+, Safari 16.4+, or Firefox 113+ — the same
+browser set the web installer already requires. On anything older the upload card
+falls back to txt-only and says so.
+
+ZIP64 archives and encrypted (DRM) EPUBs are not supported.
+
+
+## KOReader progress sync
+
+The device can keep its reading position in step with KOReader on your phone,
+Kobo, Kindle or PocketBook, using KOReader's own
+[`kosync`](https://github.com/koreader/koreader-sync-server) protocol.
+
+### Setup
+
+1. Open the web UI and go to **Sync**.
+2. Enter the server (the public `https://sync.koreader.rocks` is the default; a
+   self-hosted instance works too, including plain `http://` on your LAN), plus
+   your KOReader sync username and password. **Register** creates a new account;
+   **Test connection** checks an existing one.
+3. Tick **Enable sync** and save. Only the MD5 of the password is stored on the
+   device, never the password itself — that digest is exactly what the protocol
+   sends as `x-auth-key`.
+4. Wi-Fi credentials must already be provisioned (see
+   [Wi-Fi provisioning](#wi-fi-provisioning-improv)).
+
+### Use
+
+Open a book, bring up the reader menu (**click-hold** by default), select
+**Sync progress** and confirm with **2×**. The device joins Wi-Fi, fetches the
+position from the server, and:
+
+- if the two agree, pushes your position and shows *In sync*
+- if they differ, shows both — *Other: 47%* / *Here: 31%* — and lets you choose
+  **Jump to other device** or **Keep this position**. **3×** leaves without
+  changing either side.
+
+Sync only ever happens when you ask for it. Nothing runs in the background, and
+the radio is shut down again before you are returned to the page.
+
+### Book identifiers
+
+A book syncs under the same identifier KOReader uses: a partial MD5 of the
+*original* file. Because the device rewrites text as it stores it, that hash has
+to be taken before upload — so it is computed in the browser and recorded
+automatically for anything uploaded through the web UI, for `.epub` and `.txt`
+alike. For KOReader to agree, it must be set to the **binary** document-matching
+method (its default) and be reading the same source file.
+
+Books that were already on the device before this feature existed have no
+identifier and will report *No sync id for this book*. Re-upload them, or paste
+the value in by hand under **Sync → Book identifiers**.
+
+### Known limitations
+
+- **Positions are matched by percentage, not exactly.** Pala One's position is a
+  byte offset into flattened text; KOReader's is an XPointer into its own
+  rendering of the EPUB, which this firmware cannot produce or interpret. The
+  percentage is the only value both sides agree on, so expect to land within a
+  page or two rather than exactly on the sentence.
+- **The Pala → KOReader direction is best-effort.** KOReader expects an XPointer
+  in the `progress` field; Pala One sends the percentage there instead. KOReader
+  reliably *shows* the incoming progress; whether it jumps precisely depends on
+  its version. The KOReader → Pala direction uses `percentage` only and is not
+  affected.
+- **There is no clock on the device** (no NTP, no RTC date), so "which side is
+  newer" cannot be decided automatically. That is why a difference always
+  prompts rather than resolving itself.
+
+
 ## Device lock
 
 The device can be locked to stop accidental input (page turns, menu, navigation) while it rests in a bag or pocket. The locked state is persisted to NVS (`cfg_locked`), so a device that fully powers down comes back locked.
@@ -321,7 +414,8 @@ Return from `app_main` to exit back to the Apps menu. Apps decide their own exit
 
 ## Features
 
-- TXT book support
+- TXT and EPUB book support
+- Reading-progress sync with KOReader devices (kosync)
 - Adjustable font size and line spacing
 - Font family choice (Helvetica / OpenDyslexic)
 - Bionic reading mode

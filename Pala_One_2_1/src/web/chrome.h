@@ -37,7 +37,7 @@ String storageCardHtml(const char* title = D_WEB_STORAGE_HEADING);
 // For external callers that want just the percent (e.g. banners).
 int storageUsedPct();
 
-// Mount /style.css — call once from registerWebRoutes().
+// Mount /style.css + /epub.js — call once from registerWebRoutes().
 void registerChromeRoutes();
 
 #endif  // PALA_WEB_CHROME_H

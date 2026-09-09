@@ -50,9 +50,11 @@ void ReaderScreen::draw() {
 
 void ReaderScreen::onButton(const ButtonEvent& e) {
   // Reader menu overlay swallows all input while open. On close, force a
-  // full refresh because the overlay redraw replaced the page.
+  // full refresh because the overlay redraw replaced the page — unless the
+  // menu is handing off to another screen (Sync), in which case redrawing
+  // the page would cost a ~2 s e-ink full refresh nobody gets to see.
   if (ReaderMenu::isActive()) {
-    if (ReaderMenu::onButton(e) && !ReaderMenu::isActive()) {
+    if (ReaderMenu::onButton(e) && !ReaderMenu::isActive() && !nextScreen) {
       g_bookview.cursor.pageTurnsSinceFull = FULL_REFRESH_EVERY_N_PAGES;
       renderCurrentPage();
     }

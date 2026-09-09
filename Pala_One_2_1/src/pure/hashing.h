@@ -14,4 +14,8 @@ String prefKeyForBook(const String& path);
 // Preference-key suffix for a book's bookmark blob: "<bookKey>_bm".
 String bmKeyFor(const String& bookKey);
 
+// Preference-key suffix for a book's KOReader sync document id:
+// "<bookKey>_ks". 13 characters, inside NVS's 15-character key limit.
+String ksKeyFor(const String& bookKey);
+
 #endif  // PALA_PURE_HASHING_H

@@ -36,10 +36,36 @@ void saveSavedOffset(KeyValueStore& kv, const String& bookKey, uint32_t byteOffs
   kv.putInt((bookKey + "_off").c_str(), (int)byteOffset);
 }
 
+bool loadKosyncDoc(KeyValueStore& kv, const String& bookKey,
+                   uint8_t out[KOSYNC_DOC_BYTES]) {
+  for (size_t i = 0; i < KOSYNC_DOC_BYTES; i++) out[i] = 0;
+  uint8_t buf[KOSYNC_DOC_BYTES] = {0};
+  size_t got = kv.getBytes(ksKeyFor(bookKey).c_str(), buf, sizeof(buf));
+  if (got != KOSYNC_DOC_BYTES) return false;   // absent, or a short/garbage blob
+  for (size_t i = 0; i < KOSYNC_DOC_BYTES; i++) out[i] = buf[i];
+  return true;
+}
+
+void saveKosyncDoc(KeyValueStore& kv, const String& bookKey,
+                   const uint8_t doc[KOSYNC_DOC_BYTES]) {
+  // An all-zero digest is the unset sentinel, so storing it would be
+  // indistinguishable from having no entry — drop the key instead.
+  if (!kosyncDocIsSet(doc)) {
+    clearKosyncDoc(kv, bookKey);
+    return;
+  }
+  kv.putBytes(ksKeyFor(bookKey).c_str(), doc, KOSYNC_DOC_BYTES);
+}
+
+void clearKosyncDoc(KeyValueStore& kv, const String& bookKey) {
+  kv.remove(ksKeyFor(bookKey).c_str());
+}
+
 bool clearBookMetadata(KeyValueStore& kv, const String& bookKey) {
   kv.remove((bookKey + "_p").c_str());
   kv.remove((bookKey + "_off").c_str());
   kv.remove(bmKeyFor(bookKey).c_str());
+  kv.remove(ksKeyFor(bookKey).c_str());
   return true;
 }
 
@@ -61,6 +87,14 @@ void renameBookMetadata(KeyValueStore& kv, const String& oldKey, const String& n
   if (got > 0) {
     kv.putBytes(bmKeyFor(newKey).c_str(), buf, got);
     kv.remove(bmKeyFor(oldKey).c_str());
+  }
+
+  // The sync document id is a property of the file's contents, not its name,
+  // so a rename/move must carry it across or the book silently stops syncing.
+  uint8_t doc[KOSYNC_DOC_BYTES];
+  if (loadKosyncDoc(kv, oldKey, doc)) {
+    saveKosyncDoc(kv, newKey, doc);
+    clearKosyncDoc(kv, oldKey);
   }
 }
 

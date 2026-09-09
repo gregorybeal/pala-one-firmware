@@ -107,3 +107,86 @@ TEST_CASE("saveBookmarks overwrites prior content cleanly") {
   CHECK_EQ(back.count, 1);
   CHECK_EQ(back.pages[0], 99);
 }
+
+// ----------------------------------------------------------------------------
+//  KOReader sync document id — shares the per-book lifecycle with progress
+//  and bookmarks, so it is tested against the same store.
+// ----------------------------------------------------------------------------
+static void fillDoc(uint8_t doc[KOSYNC_DOC_BYTES], uint8_t seed) {
+  for (size_t i = 0; i < KOSYNC_DOC_BYTES; i++) doc[i] = (uint8_t)(seed + i);
+}
+
+TEST_CASE("kosync doc id round-trips through the store") {
+  MapKvStore kv;
+  uint8_t in[KOSYNC_DOC_BYTES];
+  fillDoc(in, 0x10);
+  saveKosyncDoc(kv, "b_1", in);
+
+  uint8_t out[KOSYNC_DOC_BYTES];
+  CHECK(loadKosyncDoc(kv, "b_1", out));
+  for (size_t i = 0; i < KOSYNC_DOC_BYTES; i++) CHECK_EQ((int)out[i], (int)in[i]);
+  CHECK(kosyncDocIsSet(out));
+}
+
+TEST_CASE("loading an absent kosync doc id yields the unset sentinel") {
+  MapKvStore kv;
+  uint8_t out[KOSYNC_DOC_BYTES];
+  for (size_t i = 0; i < KOSYNC_DOC_BYTES; i++) out[i] = 0xAA;
+  CHECK(!loadKosyncDoc(kv, "b_missing", out));
+  // Must be zero-filled, not left as caller garbage, so kosyncDocIsSet works.
+  CHECK(!kosyncDocIsSet(out));
+}
+
+TEST_CASE("saving an all-zero kosync doc id removes the key") {
+  MapKvStore kv;
+  uint8_t real_[KOSYNC_DOC_BYTES];
+  fillDoc(real_, 0x40);
+  saveKosyncDoc(kv, "b_2", real_);
+
+  uint8_t zero[KOSYNC_DOC_BYTES] = {0};
+  saveKosyncDoc(kv, "b_2", zero);
+
+  uint8_t out[KOSYNC_DOC_BYTES];
+  CHECK(!loadKosyncDoc(kv, "b_2", out));
+  CHECK(!kosyncDocIsSet(out));
+}
+
+TEST_CASE("clearBookMetadata drops the kosync doc id too") {
+  MapKvStore kv;
+  uint8_t in[KOSYNC_DOC_BYTES];
+  fillDoc(in, 0x21);
+  saveKosyncDoc(kv, "b_3", in);
+  saveSavedOffset(kv, "b_3", 4242);
+
+  clearBookMetadata(kv, "b_3");
+
+  uint8_t out[KOSYNC_DOC_BYTES];
+  CHECK(!loadKosyncDoc(kv, "b_3", out));
+  CHECK_EQ(loadSavedOffset(kv, "b_3"), kOffsetUnset);
+}
+
+TEST_CASE("renameBookMetadata carries the kosync doc id to the new key") {
+  MapKvStore kv;
+  uint8_t in[KOSYNC_DOC_BYTES];
+  fillDoc(in, 0x77);
+  saveKosyncDoc(kv, "b_old", in);
+
+  renameBookMetadata(kv, "b_old", "b_new");
+
+  uint8_t out[KOSYNC_DOC_BYTES];
+  CHECK(loadKosyncDoc(kv, "b_new", out));
+  for (size_t i = 0; i < KOSYNC_DOC_BYTES; i++) CHECK_EQ((int)out[i], (int)in[i]);
+  // The old key must not linger — a later book hashing to it would inherit
+  // someone else's sync identity.
+  uint8_t stale[KOSYNC_DOC_BYTES];
+  CHECK(!loadKosyncDoc(kv, "b_old", stale));
+}
+
+TEST_CASE("renameBookMetadata is a no-op when no doc id was stored") {
+  MapKvStore kv;
+  saveSavedOffset(kv, "b_a", 9);
+  renameBookMetadata(kv, "b_a", "b_b");
+  uint8_t out[KOSYNC_DOC_BYTES];
+  CHECK(!loadKosyncDoc(kv, "b_b", out));
+  CHECK_EQ(loadSavedOffset(kv, "b_b"), 9u);
+}

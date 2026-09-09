@@ -25,3 +25,7 @@ String prefKeyForBook(const String& path) {
 String bmKeyFor(const String& bookKey) {
   return bookKey + "_bm";
 }
+
+String ksKeyFor(const String& bookKey) {
+  return bookKey + "_ks";
+}

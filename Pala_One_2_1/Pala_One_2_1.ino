@@ -82,6 +82,7 @@
 #include "src/pure/hashing.h"
 #include "src/storage/app_catalog.h"
 #include "src/storage/fs_util.h"
+#include "src/storage/kosync_settings.h"
 #include "src/storage/library.h"
 #include "src/storage/list_items.h"
 #include "src/storage/page_cache.h"
@@ -101,6 +102,7 @@
 #include "src/ui/screens/list_screen.h"
 #include "src/ui/screens/reader_screen.h"
 #include "src/ui/screens/statistics_screen.h"
+#include "src/ui/screens/sync_screen.h"
 #include "src/ui/screens/update_screen.h"
 #include "src/ui/screens/upload_screen.h"
 #include "src/ui/header_title.h"
@@ -120,6 +122,7 @@ ReaderScreen               g_readerScreen;
 UploadScreen               g_uploadScreen;
 AboutScreen                g_aboutScreen;
 UpdateScreen               g_updateScreen;
+SyncScreen                 g_syncScreen;
 AppsScreen                 g_appsScreen;
 ListScreen                 g_listScreen;
 StatisticsScreen           g_statsScreen;
@@ -197,6 +200,7 @@ void setup() {
   Screensavers::loadSettings();
   Statusbar::loadSettings();
   Gestures::loadSettings();
+  Kosync::loadSettings();
   HeaderTitle::loadSettings();
   // Sleep::loadSettings() and Lock::loadSettings() already ran earlier in
   // setup() so both flags were available for the boot-clear gate above —
