@@ -113,8 +113,13 @@ static CallResult request(const char* method, const String& path,
     http.addHeader("x-auth-key",  Kosync::authKey());
   }
 
+  // HTTPClient takes a non-const uint8_t* even though it only reads the
+  // payload. Spell the two conversions out rather than hiding both behind one
+  // C-style cast (cppcheck's cstyleCast, and it is clearer about what is
+  // actually going on).
+  uint8_t* payload = reinterpret_cast<uint8_t*>(const_cast<char*>(body.c_str()));
   int code = (body.length() > 0)
-               ? http.sendRequest(method, (uint8_t*)body.c_str(), body.length())
+               ? http.sendRequest(method, payload, body.length())
                : http.sendRequest(method);
 
   if (outBody) {

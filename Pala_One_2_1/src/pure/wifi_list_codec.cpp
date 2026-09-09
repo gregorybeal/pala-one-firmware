@@ -7,7 +7,10 @@
 static void copyBounded(char* dst, const char* src, size_t cap) {
   size_t n = 0;
   if (src) {
-    while (src[n] != '\0' && n < cap) {
+    // Bound first, then index: the other order reads src[cap] once before
+    // stopping, which is exactly what cppcheck's arrayIndexThenCheck warns
+    // about even though a NUL-terminated source makes it harmless here.
+    while (n < cap && src[n] != '\0') {
       dst[n] = src[n];
       n++;
     }
