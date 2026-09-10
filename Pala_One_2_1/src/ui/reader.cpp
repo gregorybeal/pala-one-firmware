@@ -2,6 +2,7 @@
 
 #include "src/hal/display.h"
 #include "src/pure/hashing.h"
+#include "src/pure/progress_gate.h"
 #include "src/storage/book_metadata.h"
 #include "src/storage/library.h"   // g_library — openBookByIndex reads it
 #include "src/storage/page_cache.h"
@@ -154,22 +155,82 @@ static bool tryExtendPageTable() {
   return appendPageOffset(next);
 }
 
+// ----------------------------------------------------------------------------
+//  Progress for the blocking page-table walks
+//
+//  Extending the table is sequential, so the wait grows with how far into the
+//  book the target is: a layout change deep into a long book, or a sync jump
+//  to where the other device is, blocks for seconds. Without feedback that
+//  reads as a crash (issue #118).
+//
+//  The gate keeps this honest in both directions — nothing paints until the
+//  walk has already proven slow, so the overwhelmingly common fast path is
+//  untouched, and repaints are spaced so the drawing does not become a large
+//  part of the wait it is reporting. Policy and its tests live in
+//  pure/progress_gate.h.
+//
+//  Tuning note: the gate's thresholds were picked against an assumed partial
+//  refresh cost, not a measured one. If the indexing screen feels like it is
+//  slowing the walk down noticeably, raise ProgressGate::minRepaintMs; if a
+//  long walk sits blank for too long before the screen appears, lower
+//  quietMs. Both are plain fields, deliberately, so this needs no surgery.
+// ----------------------------------------------------------------------------
+static ProgressGate s_paginateGate;
+
+static void drawPaginating(int pct) {
+  prepareMenuFrame();
+  int y = drawSectionHeader(D_PAGINATE_HEADER);
+
+  Font::useBody();
+  char buf[8];
+  snprintf(buf, sizeof(buf), "%d%%", pct);
+  u8g2.setCursor(MARGIN_X, y);
+  u8g2.print(buf);
+
+  display.update();
+}
+
+static void paginateBegin() {
+  s_paginateGate.begin(millis());
+}
+
+static void paginateTick(uint32_t done, uint32_t total) {
+  if (!s_paginateGate.shouldPaint(millis(), progressPercent(done, total))) return;
+  drawPaginating(s_paginateGate.lastPct());
+}
+
+// Having drawn over whatever was on screen, the next frame has to be a full
+// refresh or the progress text ghosts through it. Which of the two follows
+// depends on the caller — the reader page after opening a book, a menu frame
+// after a sync jump — so arm both.
+static void paginateEnd() {
+  if (!s_paginateGate.painted()) return;
+  forceNextRenderFull();
+  forceNextMenuFrameFull();
+}
+
 // Extend the page table forward until `targetPage` is reachable, or no more
 // progress is possible (EOF / MAX_PAGES). Pure extension — no persistence
 // side effects (the explicit save points handle that — see persistReaderState).
 static void ensureOffsetsUpTo(int targetPage) {
+  paginateBegin();
   while (g_bookview.pages.count <= targetPage) {
     if (!tryExtendPageTable()) break;
+    paginateTick((uint32_t)g_bookview.pages.count, (uint32_t)targetPage);
   }
+  paginateEnd();
 }
 
 int findPageForOffset(uint32_t targetOffset) {
   // Extend forward until the last known page starts at or past the target,
   // or we can't extend further.
+  paginateBegin();
   while (g_bookview.pages.count == 0
       || g_bookview.pages.offsets[g_bookview.pages.count - 1] < targetOffset) {
     if (!tryExtendPageTable()) break;
+    paginateTick(g_bookview.pages.offsets[g_bookview.pages.count - 1], targetOffset);
   }
+  paginateEnd();
   // The page containing `targetOffset` is the largest N with
   // offsets[N] <= targetOffset.
   for (int i = g_bookview.pages.count - 1; i >= 0; i--) {

@@ -27,6 +27,7 @@ set(SUT_SRC
   ${FW_SRC}/pure/streak_log.cpp
   ${FW_SRC}/pure/kosync_codec.cpp
   ${FW_SRC}/pure/xpointer.cpp
+  ${FW_SRC}/pure/progress_gate.cpp
   ${FW_SRC}/pure/sync_map_codec.cpp
   ${FW_SRC}/pure/wifi_list_codec.cpp
   ${FW_SRC}/storage/book_metadata.cpp
@@ -50,6 +51,7 @@ set(TEST_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/test_streak_log.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test_kosync_codec.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test_xpointer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/test_progress_gate.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test_sync_map_codec.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test_wifi_list_codec.cpp
 )
@@ -90,6 +92,7 @@ add_executable(host_fs_tests
   ${FW_SRC}/storage/sync_map.cpp
   ${FW_SRC}/pure/sync_map_codec.cpp
   ${FW_SRC}/pure/xpointer.cpp
+  ${FW_SRC}/pure/progress_gate.cpp
   ${FW_SRC}/pure/hashing.cpp
 )
 target_include_directories(host_fs_tests BEFORE PRIVATE

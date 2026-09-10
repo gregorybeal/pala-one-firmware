@@ -87,6 +87,7 @@
 #define D_UPDATE_CONNECTING         "Conectando..."
 #define D_UPDATE_CONN_FAILED        "Conexión Wi-Fi fallida"
 #define D_UPDATE_CHECKING           "Verificando..."
+#define D_PAGINATE_HEADER          "Indexando"
 #define D_UPDATE_SERVER_FAIL        "No se puede alcanzar el servidor"
 #define D_UPDATE_UP_TO_DATE         "Ya está actualizado"
 #define D_UPDATE_AVAILABLE_PREFIX   "Disponible: "
