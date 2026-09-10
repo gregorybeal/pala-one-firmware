@@ -10,6 +10,16 @@
 
 static constexpr const char* kMdnsHost = "pala-one";
 
+// Association is invisible from the device — the screen only ever says
+// "Connecting". When it ends in the SoftAP fallback there is no way to tell
+// which networks were tried, which the scan saw, or why each one failed, so
+// the walk narrates itself over USB. Compiled out of release builds.
+#if DEBUG_BUILD
+  #define WIFI_LOG(...) Serial.printf("[wifi] " __VA_ARGS__)
+#else
+  #define WIFI_LOG(...) do {} while (0)
+#endif
+
 // How long one association attempt gets before we move on. Short enough that
 // a wrong stored password doesn't dominate the sequence, long enough for a
 // slow router to finish a DHCP handshake.
@@ -74,6 +84,9 @@ static void beginAttempt(int listIndex, StaPhase phase) {
   s_sta.currentSsid    = list.nets[listIndex].ssid;
   s_sta.phase          = phase;
   s_sta.phaseStartedMs = millis();
+  WIFI_LOG("try %s \"%s\"\n",
+           phase == StaPhase::TryingLastGood ? "last-good" : "candidate",
+           list.nets[listIndex].ssid);
   WiFi.begin(list.nets[listIndex].ssid, list.nets[listIndex].pass);
 }
 
@@ -84,6 +97,7 @@ static void beginScan() {
   s_sta.currentSsid    = "";
   s_sta.phase          = StaPhase::Scanning;
   s_sta.phaseStartedMs = millis();
+  WIFI_LOG("scanning\n");
   WiFi.scanNetworks(/*async=*/true);
 }
 
@@ -136,6 +150,30 @@ static uint8_t collectCandidates(int16_t found, const String& alreadyTried) {
   return s_sta.candidateCount;
 }
 
+// Append the saved networks the scan did NOT report, in list order, skipping
+// anything already queued or already tried.
+//
+// A hidden access point never announces its SSID, so it cannot appear in scan
+// results however close you are standing to it — matching one against the
+// saved list is simply not possible. The only way to reach it is to call
+// WiFi.begin() with the name and let the AP answer. The same applies to a
+// network the scan missed for duller reasons: a weak or busy channel, or the
+// scan being cut short at kScanMs.
+static void appendUnseenCandidates(const String& alreadyTried) {
+  const WifiList& list = WifiCreds::list();
+  for (uint8_t i = 0; i < list.count && s_sta.candidateCount < MAX_WIFI_NETWORKS; i++) {
+    if (alreadyTried.length() > 0 && alreadyTried == list.nets[i].ssid) continue;
+
+    bool queued = false;
+    for (uint8_t c = 0; c < s_sta.candidateCount; c++) {
+      if (s_sta.candidates[c] == i) { queued = true; break; }
+    }
+    if (queued) continue;
+
+    s_sta.candidates[s_sta.candidateCount++] = i;
+  }
+}
+
 // Scan came back unusable — fall back to walking every saved network in list
 // order. Slower, but better than refusing to connect because the radio would
 // not scan.
@@ -165,6 +203,9 @@ bool wifiStaBegin() {
   int idx = (lastGood.length() > 0)
               ? wifiListFind(WifiCreds::list(), lastGood.c_str())
               : -1;
+  WIFI_LOG("begin: %u saved, last-good \"%s\"\n",
+           (unsigned)WifiCreds::count(), lastGood.c_str());
+
   if (idx >= 0) {
     beginAttempt(idx, StaPhase::TryingLastGood);
   } else {
@@ -193,18 +234,26 @@ WifiStaResult wifiStaPoll(WifiSession& out) {
       if (found >= 0) {
         uint8_t n = collectCandidates(found, tried);
         WiFi.scanDelete();
+        WIFI_LOG("scan found %d ap(s), %u saved on the air\n", (int)found, (unsigned)n);
         if (n == 0) {
-          // None of the saved networks are here. Say so now instead of
-          // burning a timeout per saved network.
-          s_sta.phase = StaPhase::Exhausted;
-          return WifiStaResult::Failed;
+          // Nothing of ours in the results. Usually that means we really are
+          // somewhere else — but a hidden network is invisible to a scan no
+          // matter where we are, so try the saved list directly before
+          // dropping to the access point. Costs one association timeout per
+          // network, and only in the case that was about to fail outright.
+          appendUnseenCandidates(tried);
+          WIFI_LOG("no scan matches; trying %u saved network(s) directly\n",
+                   (unsigned)s_sta.candidateCount);
         }
       } else {
+        WIFI_LOG("scan unusable (%d); walking the saved list\n", (int)found);
         candidatesFromWholeList(tried);
-        if (s_sta.candidateCount == 0) {
-          s_sta.phase = StaPhase::Exhausted;
-          return WifiStaResult::Failed;
-        }
+      }
+
+      if (s_sta.candidateCount == 0) {
+        WIFI_LOG("no candidates left -> access point\n");
+        s_sta.phase = StaPhase::Exhausted;
+        return WifiStaResult::Failed;
       }
 
       beginAttempt(s_sta.candidates[s_sta.candidateAt], StaPhase::TryingCandidate);
@@ -218,6 +267,9 @@ WifiStaResult wifiStaPoll(WifiSession& out) {
         IPAddress ip = WiFi.localIP();
         MDNS.begin(kMdnsHost);
         MDNS.addService("http", "tcp", 80);
+
+        WIFI_LOG("connected to \"%s\" as %s\n",
+                 s_sta.currentSsid.c_str(), ip.toString().c_str());
 
         // Remember what worked so the next session can skip the scan.
         WifiCreds::setLastGoodSsid(s_sta.currentSsid);
@@ -240,12 +292,19 @@ WifiStaResult wifiStaPoll(WifiSession& out) {
 
       if (s_sta.phase == StaPhase::TryingLastGood) {
         // The remembered network isn't reachable — find out what is.
+        WIFI_LOG("last-good \"%s\" failed (status %d, %ums)\n",
+                 s_sta.currentSsid.c_str(), (int)st, (unsigned)elapsed);
         beginScan();
         return WifiStaResult::Connecting;
       }
 
+      WIFI_LOG("\"%s\" failed (status %d, %ums)\n",
+               s_sta.currentSsid.c_str(), (int)st, (unsigned)elapsed);
+
       s_sta.candidateAt++;
       if (s_sta.candidateAt >= s_sta.candidateCount) {
+        WIFI_LOG("all %u candidate(s) exhausted -> access point\n",
+                 (unsigned)s_sta.candidateCount);
         s_sta.phase = StaPhase::Exhausted;
         return WifiStaResult::Failed;
       }

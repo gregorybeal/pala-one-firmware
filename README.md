@@ -54,8 +54,13 @@ Which one it joins is decided automatically, and the list is **not** a priority 
 
 1. the network that connected last time, tried immediately — no scan, so being at home is as quick as it was with a single stored network
 2. failing that, a scan, then the saved networks actually on the air, strongest first
+3. failing *that*, the saved networks the scan did not report, tried directly in list order
 
-If none of your networks are in range the scan says so at once, rather than working through an association timeout per saved network. Adding a network whose name is already saved replaces that network's password instead of creating a duplicate; adding a sixth network evicts the oldest.
+Step 3 exists because a scan cannot see everything. A **hidden** access point never announces its SSID, so it can never be matched against the saved list however close you are standing to it — the only way in is to ask for it by name. The same goes for a network the scan missed for duller reasons: a weak or busy channel, or the scan being cut short. Reaching the access-point fallback therefore means every saved network was actually attempted, not merely that none of them showed up in a scan.
+
+The cost is that being genuinely away from all of them takes one association timeout per saved network before the SoftAP appears, instead of failing as soon as the scan comes back. That only applies in the case that was going to fail anyway.
+
+Adding a network whose name is already saved replaces that network's password instead of creating a duplicate; adding a sixth network evicts the oldest.
 
 Saved passwords are never displayed back in the web UI — only whether a network has one.
 
