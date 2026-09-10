@@ -94,23 +94,40 @@ from your repo instead of upstream. Four things have to line up:
    *Deploy from a branch*, branch `gh-pages`, folder `/`. Without this the
    workflow still writes `gh-pages` but nothing is served, and the device
    reports *"Cannot reach update server"*.
-3. **Point the firmware at it** by overriding `PALA_SITE_BASE_URL` in your
-   env's `build_flags` (see `platformio.ini`). This also moves the Improv
-   post-provisioning redirect, which is baked into the firmware:
+3. **Point the firmware at it.** Set a repository *variable* named
+   `SITE_BASE_URL` (Settings → Secrets and variables → Actions → Variables)
+   to your Pages URL, trailing slash included:
 
    ```
-   build_flags = ${env:wireless-paper-v1_2.build_flags} -D LANG_EN
-                 -D PALA_SITE_BASE_URL='"https://you.github.io/pala-one-firmware/"'
+   SITE_BASE_URL = https://you.github.io/pala-one-firmware/
    ```
-4. **Flash that build over USB once.** OTA can only move a device to a site
-   it already knows about, so the first build carrying the new URL has to
-   arrive by cable.
 
-Note the version check is a plain string comparison against `FW_VERSION`
-(`src/hal/ota.cpp`), and both sides derive it from `git describe --tags
---always`. A fork with no tags gets a bare short SHA, which works fine for the
-`dev` channel — every new commit reads as a new version. The `stable` channel
-needs a tag, so `/stable/` stays empty until you push one.
+   The workflow's *Compose build flags* step turns that into
+   `-D PALA_SITE_BASE_URL=...` for all four builds. Upstream leaves the
+   variable unset and keeps the default in `src/config.h`, so nothing tracked
+   has to change and the branch stays mergeable. The same flag also moves the
+   Improv post-provisioning redirect, which is baked into the firmware.
+
+   For a **local** build, pass it on the command line instead — the repository
+   variable only reaches CI:
+
+   ```
+   PLATFORMIO_BUILD_FLAGS='-D PALA_SITE_BASE_URL='"'"'"https://you.github.io/pala-one-firmware/"'"'"'' \
+     pio run -e wireless-paper-v1_2-en -t upload
+   ```
+4. **Get that build onto the device over USB once.** OTA can only move a
+   device to a site it already knows about, so the first firmware carrying the
+   new URL has to arrive by cable — either the local build above, or your own
+   web installer at `https://you.github.io/pala-one-firmware/`, which now
+   serves binaries built with the variable set.
+
+**Push your tags.** Both the manifest and `FW_VERSION` come from `git describe
+--tags --always`, and CI checks out with `fetch-depth: 0` — so if your fork has
+no tags, CI stamps a bare short SHA while your local builds stamp
+`v3.0-8-gabc1234`. The OTA check is a plain string comparison
+(`src/hal/ota.cpp`), so those two never match and a locally flashed device
+reports an update available forever. `git push origin --tags` once, and the two
+agree. It also unblocks `/stable/`, which stays empty until a `v*` tag exists.
 
 
 ## Language
