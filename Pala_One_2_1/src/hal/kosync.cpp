@@ -169,7 +169,8 @@ CallResult registerUser(const String& username, const String& password) {
   return request("POST", "/users/create", body, /*authenticated=*/false, nullptr);
 }
 
-CallResult push(const String& docHex, float percentage) {
+CallResult push(const String& docHex, float percentage,
+                const String& progress) {
   CallResult r;
   if (!Kosync::configured()) { r.result = Result::NotConfigured; return r; }
   if (docHex.length() != KOSYNC_DOC_HEX) { r.result = Result::NotFound; return r; }
@@ -179,6 +180,7 @@ CallResult push(const String& docHex, float percentage) {
   p.device     = Kosync::deviceName();
   p.deviceId   = Kosync::deviceId();
   p.percentage = percentage;
+  p.progress   = progress;
 
   return request("PUT", "/syncs/progress", buildProgressBody(p),
                  /*authenticated=*/true, nullptr);

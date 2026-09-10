@@ -182,20 +182,48 @@ method (its default) and be reading the same source file.
 
 Books that were already on the device before this feature existed have no
 identifier and will report *No sync id for this book*. Re-upload them, or paste
-the value in by hand under **Sync → Book identifiers**.
+the value in by hand under **Sync → Book identifiers**. Re-uploading also builds
+the spine map, which pasting the id by hand does not — a hand-entered book syncs
+by percentage only.
+
+### How positions are matched
+
+KOReader stores a position as an XPointer into crengine's DOM — something like
+`/body/DocFragment[11]/body/div/p[3].0` — which names a spine document and a
+paragraph inside it. Pala One's position is a byte offset into the flattened
+text. The two are reconciled through a **spine map** built in your browser when
+the EPUB is uploaded, and stored beside the book as `sm_<hash>.bin`:
+
+- **KOReader → Pala** decodes the XPointer against the map and lands on the
+  paragraph KOReader is on, not on a proportional guess.
+- **Pala → KOReader** composes an XPointer for the current page, so the reverse
+  direction is structural too.
+
+The map is derived data, not configuration: it is generated automatically at
+upload, needs no setup, and is deleted and renamed along with the book. Novels
+land around 20–30 KB against a 4.5 MB partition.
+
+Without a map — a plain `.txt`, a book uploaded before this existed, or an EPUB
+whose structure crengine shaped differently than the flattener did — sync falls
+back to matching by **percentage**. That is the older behaviour and it is only
+proportional: expect to land within a page or two, and biased late, because
+KOReader's percentage counts front matter and other content the flattener drops.
+Re-upload a book to give it a map.
 
 ### Known limitations
 
-- **Positions are matched by percentage, not exactly.** Pala One's position is a
-  byte offset into flattened text; KOReader's is an XPointer into its own
-  rendering of the EPUB, which this firmware cannot produce or interpret. The
-  percentage is the only value both sides agree on, so expect to land within a
-  page or two rather than exactly on the sentence.
-- **The Pala → KOReader direction is best-effort.** KOReader expects an XPointer
-  in the `progress` field; Pala One sends the percentage there instead. KOReader
-  reliably *shows* the incoming progress; whether it jumps precisely depends on
-  its version. The KOReader → Pala direction uses `percentage` only and is not
-  affected.
+- **The percentage fallback lands late.** Anything KOReader renders but the
+  flattener drops (the navigation document, `linear="no"` items, images, tables)
+  sits in KOReader's denominator and not in ours, so a percentage-only sync
+  overshoots — most at the start of a book, shrinking to nothing at the end.
+  This is exactly what the spine map removes.
+- **The map is a good-faith reconstruction of crengine's DOM, not a copy of
+  it.** crengine autoboxes stray inline content and keeps or drops elements on
+  its own rules, so a pointer's deepest steps may not exist in the map. The
+  device retries against successively shallower prefixes and, failing that,
+  falls back to the fragment start; a resolved position that lands more than
+  25 % away from the percentage the server sent alongside it is rejected
+  outright rather than trusted.
 - **There is no clock on the device** (no NTP, no RTC date), so "which side is
   newer" cannot be decided automatically. That is why a difference always
   prompts rather than resolving itself.

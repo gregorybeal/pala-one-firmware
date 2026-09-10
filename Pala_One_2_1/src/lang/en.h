@@ -574,6 +574,7 @@
 #define D_WEB_KS_MSG_DOC_CLEARED    "Sync identifier removed."
 #define D_WEB_KS_MSG_DOC_SAVED      "Sync identifier saved."
 #define D_WEB_KS_ERR_BAD_HASH       "Sync identifier must be 32 hexadecimal characters."
+#define D_WEB_KS_ERR_BAD_MAP        "Spine map rejected."
 
 // ----------------------------------------------------------------------------
 //  Sync screen (ui/screens/sync_screen.cpp)

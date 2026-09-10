@@ -8,10 +8,12 @@
 #include "src/hal/wifi_provisioning.h"
 #include "src/pure/hashing.h"              // prefKeyForBook
 #include "src/pure/kosync_codec.h"
+#include "src/pure/xpointer.h"
 #include "src/state.h"
 #include "src/storage/book_metadata.h"
 #include "src/storage/kosync_settings.h"
 #include "src/storage/preferences_store.h"
+#include "src/storage/sync_map.h"
 #include "src/storage/wifi_creds.h"
 #include "src/ui/font.h"
 #include "src/ui/reader.h"                 // g_bookview, findPageForOffset
@@ -42,6 +44,20 @@ float SyncScreen::currentLocalPct() const {
                              (uint32_t)g_bookview.book.size());
 }
 
+String SyncScreen::localXPointer() const {
+  if (!g_bookview.book.isOpen()) return String("");
+
+  const PageOffsetTable& pages = g_bookview.pages;
+  int idx = g_bookview.cursor.pageIndex;
+  if (idx < 0 || idx >= pages.count) return String("");
+
+  SyncMap map;
+  if (!map.open(g_bookview.book.path(), (uint32_t)g_bookview.book.size())) {
+    return String("");
+  }
+  return map.xpointerForOffset(pages.offsets[idx]);
+}
+
 void SyncScreen::teardownWifi() {
   if (!wifiStarted_) return;
   wifiEnd();
@@ -70,6 +86,8 @@ void SyncScreen::onEnter() {
   message_      = "";
   localPct_     = currentLocalPct();
   remotePct_    = 0.0f;
+  remoteOffset_ = 0;
+  remoteOffsetValid_ = false;
   docHex_       = "";
 
   if (!g_bookview.book.isOpen()) {
@@ -155,6 +173,11 @@ void SyncScreen::runSync() {
   remotePct_    = remote.percentage;
   remoteDevice_ = remote.device;
 
+  // Prefer the structural position when the book's spine map can resolve the
+  // XPointer KOReader sent. This both removes the front-matter bias and
+  // makes the percentages on screen agree with where the jump will land.
+  resolveRemoteOffset(remote);
+
   if (decideSync(localPct_, remotePct_) == SYNC_IDENTICAL) {
     // Already in step. Push anyway so the server records this device as the
     // most recent reader.
@@ -166,8 +189,56 @@ void SyncScreen::runSync() {
   focusItem_ = 0;
 }
 
+bool SyncScreen::resolveRemoteOffset(const KosyncRemote& remote) {
+  remoteOffsetValid_ = false;
+  remoteOffset_      = 0;
+
+  if (!g_bookview.book.isOpen()) return false;
+
+  XPointer xp;
+  if (!parseXPointer(remote.progress, xp)) return false;   // percentage, not a pointer
+
+  uint32_t size = (uint32_t)g_bookview.book.size();
+  if (size == 0) return false;
+
+  SyncMap map;
+  if (!map.open(g_bookview.book.path(), size)) return false;
+
+  // crengine numbers DocFragments over the spine; whether it counts itemrefs
+  // marked linear="no" is not knowable from here, so resolve both ways and
+  // keep whichever lands closer to the percentage the server sent with it.
+  const SyncMap::FragmentMode kModes[2] = {
+    SyncMap::FragmentMode::Opf,
+    SyncMap::FragmentMode::Linear
+  };
+
+  bool     have       = false;
+  float    bestDelta  = 0.0f;
+  uint32_t bestOffset = 0;
+
+  for (int i = 0; i < 2; i++) {
+    uint32_t off = 0;
+    if (!map.offsetForXPointer(xp, kModes[i], off)) continue;
+
+    float delta = percentageForOffset(off, size) - remote.percentage;
+    if (delta < 0.0f) delta = -delta;
+    if (!have || delta < bestDelta) {
+      have       = true;
+      bestDelta  = delta;
+      bestOffset = off;
+    }
+  }
+
+  if (!have || bestDelta > KOSYNC_XPOINTER_MAX_DELTA) return false;
+
+  remoteOffset_      = bestOffset;
+  remoteOffsetValid_ = true;
+  remotePct_         = percentageForOffset(bestOffset, size);
+  return true;
+}
+
 void SyncScreen::pushLocal() {
-  Kosync::CallResult r = Kosync::push(docHex_, localPct_);
+  Kosync::CallResult r = Kosync::push(docHex_, localPct_, localXPointer());
   if (r.result == Kosync::Result::Ok) {
     phase_ = Phase::Pushed;
   } else {
@@ -182,9 +253,17 @@ void SyncScreen::applyRemotePosition() {
   if (!g_bookview.book.isOpen()) return;
 
   uint32_t size = (uint32_t)g_bookview.book.size();
-  uint32_t target = offsetForPercentage(remotePct_, size);
 
-  // The remote percentage lands mid-page; snap to the page that contains it
+  // A resolved XPointer names a paragraph outright. Only when there is no
+  // map, or it could not be trusted, do we fall back to scaling the
+  // percentage into the file — the approximation this feature exists to
+  // avoid. See resolveRemoteOffset.
+  uint32_t target = remoteOffsetValid_
+                      ? remoteOffset_
+                      : offsetForPercentage(remotePct_, size);
+  if (size > 0 && target >= size) target = size - 1;
+
+  // Either way the target lands mid-page; snap to the page that contains it
   // so the reader has a real boundary to render from. This paginates forward
   // as needed and can take a moment on a long book.
   int page = findPageForOffset(target);
@@ -198,7 +277,7 @@ void SyncScreen::applyRemotePosition() {
   // Our position is now the remote one; tell the server this device is here
   // too, so a later sync from a third device sees a consistent answer.
   localPct_ = currentLocalPct();
-  Kosync::push(docHex_, localPct_);
+  Kosync::push(docHex_, localPct_, localXPointer());
 
   phase_ = Phase::Jumped;
 }

@@ -12,10 +12,15 @@
 //
 //  Position model. Pala One's canonical reading position is a byte offset
 //  into the stored .txt (see storage/book_metadata.h). KOReader's is an
-//  XPointer into its own rendering of the source document, which we cannot
-//  synthesize or interpret. The one value both sides agree on is
-//  `percentage`, so that is the sync currency and these helpers are the
-//  only place the two position models meet.
+//  XPointer into its own rendering of the source document.
+//
+//  Where a book has a spine map (storage/sync_map.h, built browser-side at
+//  upload) the two are translated structurally and sync is paragraph-exact.
+//  Without one — a plain .txt, a book uploaded before maps existed, a
+//  pointer whose path crengine shaped differently than the flattener did —
+//  the fallback is `percentage`, the one value both sides always agree on.
+//  These helpers are the percentage half of that; pure/xpointer.h is the
+//  other.
 // ============================================================================
 
 static const size_t KOSYNC_DOC_BYTES = 16;   // raw partial-MD5 digest
@@ -25,6 +30,14 @@ static const size_t KOSYNC_DOC_HEX   = 32;   // its lowercase hex form
 // medium-length book is well under 0.5 %, so this keeps a sub-page rounding
 // difference from prompting the user on every sync.
 static const float KOSYNC_DEADBAND = 0.005f;
+
+// How far a spine-map-resolved position may sit from the percentage the
+// server sent alongside it before we stop believing the pointer. The two
+// disagree legitimately — that gap is the structural bias the map exists to
+// remove — but a pointer resolved into the wrong spine document lands much
+// further out than any real front-matter difference. Used to choose between
+// the two DocFragment numberings, and to reject both if neither is close.
+static const float KOSYNC_XPOINTER_MAX_DELTA = 0.25f;
 
 // ----------------------------------------------------------------------------
 //  Document id — KOReader's "partial MD5", computed browser-side over the
@@ -52,17 +65,22 @@ struct KosyncPush {
   String   device;               // human-readable name, e.g. "Pala One"
   String   deviceId;             // stable per-device id
   float    percentage = 0.0f;    // [0, 1]
+  String   progress;             // crengine XPointer; empty falls back to the
+                                 // stringified percentage
 };
 
-// Body for `PUT /syncs/progress`. `progress` carries the percentage as a
-// string: KOReader puts an XPointer there for reflowable documents, which
-// we have no way to produce, so the numeric form is the honest best effort.
+// Body for `PUT /syncs/progress`. KOReader expects an XPointer in `progress`
+// for reflowable documents, so we send one whenever the book's spine map can
+// produce it. With no map there is nothing structural to say and the field
+// carries the percentage as a string, which KOReader displays but cannot
+// seek to precisely.
 String buildProgressBody(const KosyncPush& p);
 
 struct KosyncRemote {
   bool   valid = false;          // a usable percentage was present
   float  percentage = 0.0f;
-  String progress;               // opaque — displayed, never interpreted
+  String progress;               // crengine XPointer when the writer was
+                                 // KOReader; parsed by pure/xpointer.h
   String device;                 // which device last wrote, for the prompt
 };
 

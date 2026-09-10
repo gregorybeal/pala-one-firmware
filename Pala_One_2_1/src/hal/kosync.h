@@ -56,8 +56,11 @@ CallResult authenticate();
 // itself on this endpoint (unlike every other call, which takes the digest).
 CallResult registerUser(const String& username, const String& password);
 
-// PUT /syncs/progress for `docHex` at `percentage` in [0, 1].
-CallResult push(const String& docHex, float percentage);
+// PUT /syncs/progress for `docHex` at `percentage` in [0, 1]. `progress` is
+// the crengine XPointer for that position when the book's spine map can
+// produce one; pass an empty string to send the percentage instead.
+CallResult push(const String& docHex, float percentage,
+                const String& progress = String());
 
 // GET /syncs/progress/:docHex. On Result::Ok `out` holds a valid remote
 // position; Result::NotFound means the server simply has nothing for this

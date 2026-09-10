@@ -10,6 +10,7 @@
 #include "src/storage/kosync_settings.h"
 #include "src/storage/library.h"           // g_library
 #include "src/storage/preferences_store.h"
+#include "src/storage/sync_map.h"
 #include "src/storage/wifi_creds.h"
 #include "src/web/chrome.h"
 
@@ -273,9 +274,128 @@ static void handleKosyncBook() {
 }
 
 // ----------------------------------------------------------------------------
+//  POST /kosync-map — the spine map for a book that has just been uploaded,
+//  streamed as a file part whose filename is the book's stored name.
+//
+//  Written to a temp file and validated before it replaces whatever map the
+//  book already had, so a half-transferred or malformed build can never
+//  become the live map. Like /kosync-doc this is best-effort from the
+//  browser's point of view: the book is already stored, and a book with no
+//  map still syncs, just by percentage.
+// ----------------------------------------------------------------------------
+namespace {
+struct MapUpload {
+  File   tmp;
+  String tmpPath;
+  String finalPath;
+  String error;
+};
+MapUpload s_mapUp;
+}  // namespace
+
+static void discardMapUpload(MapUpload& s) {
+  if (s.tmp) s.tmp.close();
+  if (s.tmpPath.length() > 0 && FS.exists(s.tmpPath)) FS.remove(s.tmpPath);
+  s.tmpPath = "";
+}
+
+// Read the header back off disk and run it through the same parser the
+// reader uses, so what we accept and what SyncMap::open will accept cannot
+// drift apart.
+static bool storedMapIsValid(const String& path, uint32_t expectedTextSize) {
+  File f = FS.open(path, "r");
+  if (!f) return false;
+
+  uint8_t hdr[SYNC_MAP_HEADER_BYTES];
+  if (f.read(hdr, sizeof(hdr)) != sizeof(hdr)) { f.close(); return false; }
+
+  SyncMapHeader h;
+  bool ok = parseSyncMapHeader(hdr, sizeof(hdr), h)
+            && h.textSize == expectedTextSize
+            && (size_t)f.size() >= syncMapTotalBytes(h);
+  f.close();
+  return ok;
+}
+
+static void handleKosyncMapStream() {
+  MapUpload& s = s_mapUp;
+  HTTPUpload& up = server.upload();
+
+  if (up.status == UPLOAD_FILE_START) {
+    s.error     = "";
+    s.tmpPath   = "";
+    s.finalPath = "";
+
+    // Same sanitizer the upload path used, so the name the browser reports
+    // resolves to the path the device actually stored.
+    String book = "/books/" + sanitizeUploadedFilename(up.filename);
+    if (!FS.exists(book)) { s.error = D_WEB_ERR_MISSING_BOOK; return; }
+
+    s.finalPath = syncMapPathForBook(book);
+    s.tmpPath   = s.finalPath + ".tmp";
+    if (FS.exists(s.tmpPath)) FS.remove(s.tmpPath);
+
+    s.tmp = FS.open(s.tmpPath, "w");
+    if (!s.tmp) {
+      s.error   = D_WEB_ERR_CANT_CREATE_TEMP_BOOK;
+      s.tmpPath = "";
+    }
+  }
+  else if (up.status == UPLOAD_FILE_WRITE) {
+    if (s.error.length() > 0 || !s.tmp) return;
+
+    if (s.tmp.size() + up.currentSize > SYNC_MAP_MAX_FILE_BYTES) {
+      discardMapUpload(s);
+      s.error = D_WEB_ERR_NOT_ENOUGH_SPACE;
+      return;
+    }
+    if (s.tmp.write(up.buf, up.currentSize) != up.currentSize) {
+      discardMapUpload(s);
+      s.error = D_WEB_ERR_WRITE_FAILED;
+    }
+  }
+  else if (up.status == UPLOAD_FILE_END) {
+    if (s.tmp) s.tmp.close();
+    if (s.error.length() > 0 || s.tmpPath.length() == 0) return;
+
+    String book = "/books/" + sanitizeUploadedFilename(up.filename);
+    File bf = FS.open(book, "r");
+    uint32_t textSize = bf ? (uint32_t)bf.size() : 0;
+    if (bf) bf.close();
+
+    if (textSize == 0 || !storedMapIsValid(s.tmpPath, textSize)) {
+      discardMapUpload(s);
+      s.error = D_WEB_KS_ERR_BAD_MAP;
+      return;
+    }
+
+    if (FS.exists(s.finalPath)) FS.remove(s.finalPath);
+    if (!FS.rename(s.tmpPath, s.finalPath)) {
+      discardMapUpload(s);
+      s.error = D_WEB_ERR_FINALIZE_UPLOAD;
+      return;
+    }
+    s.tmpPath = "";
+  }
+  else if (up.status == UPLOAD_FILE_ABORTED) {
+    discardMapUpload(s);
+    s.error = D_WEB_ERR_UPLOAD_ABORTED;
+  }
+}
+
+static void handleKosyncMapDone() {
+  if (s_mapUp.error.length() > 0) {
+    server.send(400, "text/plain; charset=utf-8", s_mapUp.error);
+    return;
+  }
+  server.send(200, "text/plain; charset=utf-8", "ok");
+}
+
+// ----------------------------------------------------------------------------
 void registerKosyncRoutes() {
   server.on("/kosync",      HTTP_GET,  handleKosyncGet);
   server.on("/kosync",      HTTP_POST, handleKosyncPost);
   server.on("/kosync-doc",  HTTP_POST, handleKosyncDoc);
   server.on("/kosync-book", HTTP_POST, handleKosyncBook);
+  server.on("/kosync-map",  HTTP_POST, handleKosyncMapDone, handleKosyncMapStream);
 }

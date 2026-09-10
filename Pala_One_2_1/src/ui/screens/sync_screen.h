@@ -4,6 +4,7 @@
 #include <Arduino.h>
 
 #include "src/hal/wifi.h"
+#include "src/pure/kosync_codec.h"   // KosyncRemote
 #include "src/ui/screen.h"
 
 // ============================================================================
@@ -57,6 +58,13 @@ private:
   // Conflict state, as percentages of the book.
   float  localPct_  = 0.0f;
   float  remotePct_ = 0.0f;
+
+  // Set when the remote XPointer resolved through this book's spine map. The
+  // byte offset is exact where the percentage is only proportional, so it
+  // wins for both the prompt and the jump.
+  bool     remoteOffsetValid_ = false;
+  uint32_t remoteOffset_      = 0;
+
   String remoteDevice_;
   int    focusItem_ = 0;      // 0 = jump to remote, 1 = keep local
 
@@ -69,8 +77,17 @@ private:
   void   teardownWifi();
   void   exitToReader();
 
+  // Turn the remote XPointer into a byte offset via the book's spine map,
+  // refining remotePct_ when it succeeds. False leaves the percentage model
+  // in charge.
+  bool   resolveRemoteOffset(const KosyncRemote& remote);
+
   // Where the reader currently is, as a fraction of the file.
   float  currentLocalPct() const;
+
+  // ...and as an XPointer, when the spine map can produce one. Empty string
+  // otherwise, which makes the push fall back to the percentage.
+  String localXPointer() const;
 };
 
 extern SyncScreen g_syncScreen;

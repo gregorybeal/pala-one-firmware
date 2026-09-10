@@ -563,6 +563,7 @@
 #define D_WEB_KS_MSG_DOC_CLEARED    "Identificador eliminado."
 #define D_WEB_KS_MSG_DOC_SAVED      "Identificador guardado."
 #define D_WEB_KS_ERR_BAD_HASH       "El identificador debe tener 32 caracteres hexadecimales."
+#define D_WEB_KS_ERR_BAD_MAP        "Mapa de estructura rechazado."
 
 // ----------------------------------------------------------------------------
 //  Pantalla de sincronizacion (ui/screens/sync_screen.cpp)

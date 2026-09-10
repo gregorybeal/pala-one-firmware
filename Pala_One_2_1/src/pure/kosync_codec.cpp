@@ -89,12 +89,16 @@ String buildProgressBody(const KosyncPush& p) {
   // page on any book this device can hold.
   String pctStr = String(pct, 4);
 
+  // An XPointer when we have one, the percentage string otherwise. Both are
+  // JSON strings on the wire, so the shape of the body never changes.
+  String progress = (p.progress.length() > 0) ? p.progress : pctStr;
+
   String out;
-  out.reserve(200);
+  out.reserve(260 + progress.length());
   out += "{\"document\":\"";
   out += kosyncJsonEscape(p.document);
   out += "\",\"progress\":\"";
-  out += pctStr;
+  out += kosyncJsonEscape(progress);
   out += "\",\"percentage\":";
   out += pctStr;
   out += ",\"device\":\"";

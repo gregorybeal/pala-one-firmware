@@ -26,6 +26,8 @@ set(SUT_SRC
   ${FW_SRC}/pure/hold_gesture.cpp
   ${FW_SRC}/pure/streak_log.cpp
   ${FW_SRC}/pure/kosync_codec.cpp
+  ${FW_SRC}/pure/xpointer.cpp
+  ${FW_SRC}/pure/sync_map_codec.cpp
   ${FW_SRC}/pure/wifi_list_codec.cpp
   ${FW_SRC}/storage/book_metadata.cpp
   ${FW_SRC}/storage/list_items.cpp
@@ -47,6 +49,8 @@ set(TEST_SRC
   ${CMAKE_CURRENT_SOURCE_DIR}/test_hold_gesture.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test_streak_log.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test_kosync_codec.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/test_xpointer.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/test_sync_map_codec.cpp
   ${CMAKE_CURRENT_SOURCE_DIR}/test_wifi_list_codec.cpp
 )
 
@@ -70,5 +74,39 @@ else()
                                             -Wno-unused-function)
 endif()
 
+# ---------------------------------------------------------------------------
+# Filesystem-backed tests (storage/sync_map.cpp)
+#
+# A second binary because it needs test/hostfs on the include path ahead of
+# the firmware tree: that directory shadows src/state.h and src/config.h with
+# stubs providing a real-file `File` / `FS`, so the module under test does
+# genuine seeks and short reads instead of talking to a mock. Shadowing those
+# headers is incompatible with the main suite, which wants the real ones.
+# ---------------------------------------------------------------------------
+add_executable(host_fs_tests
+  ${CMAKE_CURRENT_SOURCE_DIR}/main.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/hostfs/hostfs.cpp
+  ${CMAKE_CURRENT_SOURCE_DIR}/test_sync_map.cpp
+  ${FW_SRC}/storage/sync_map.cpp
+  ${FW_SRC}/pure/sync_map_codec.cpp
+  ${FW_SRC}/pure/xpointer.cpp
+  ${FW_SRC}/pure/hashing.cpp
+)
+target_include_directories(host_fs_tests BEFORE PRIVATE
+  ${CMAKE_CURRENT_SOURCE_DIR}/hostfs      # must precede FW_SRC — see above
+  ${FW_SRC}
+  ${CMAKE_SOURCE_DIR}/../Pala_One_2_1
+  ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+if(MSVC)
+  target_compile_options(host_fs_tests PRIVATE /W4 /permissive- /wd4310)
+  target_compile_definitions(host_fs_tests PRIVATE _CRT_SECURE_NO_WARNINGS)
+else()
+  target_compile_options(host_fs_tests PRIVATE -Wall -Wextra -Wpedantic
+                                               -Wno-unused-function)
+endif()
+
 enable_testing()
 add_test(NAME host_tests COMMAND host_tests)
+add_test(NAME host_fs_tests COMMAND host_fs_tests)

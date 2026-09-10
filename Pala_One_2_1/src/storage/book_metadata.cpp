@@ -104,6 +104,7 @@ void renameBookMetadata(KeyValueStore& kv, const String& oldKey, const String& n
 // ============================================================================
 #include "src/storage/library.h"           // g_library (bulk invalidation iterates books)
 #include "src/storage/page_cache.h"        // deletePageCacheForBook / renamePageCacheForBook
+#include "src/storage/sync_map.h"          // deleteSyncMapForBook / renameSyncMapForBook
 #include "src/storage/preferences_store.h"
 
 uint8_t loadBookmarksForKey(const String& bookKey,
@@ -141,11 +142,13 @@ void deleteBookMetadata(const String& path) {
   PreferencesStore kv(prefs);
   clearBookMetadata(kv, prefKeyForBook(path));   // NVS: progress + bookmarks
   deletePageCacheForBook(path);                  // disk: pc_<hash>.bin
+  deleteSyncMapForBook(path);                    // disk: sm_<hash>.bin
 }
 
 void migrateBookMetadata(const String& oldPath, const String& newPath) {
   PreferencesStore kv(prefs);
   renameBookMetadata(kv, prefKeyForBook(oldPath), prefKeyForBook(newPath));
   renamePageCacheForBook(oldPath, newPath);
+  renameSyncMapForBook(oldPath, newPath);
 }
 #endif  // ARDUINO
