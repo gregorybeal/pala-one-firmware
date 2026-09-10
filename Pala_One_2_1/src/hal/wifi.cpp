@@ -45,6 +45,15 @@ static constexpr uint32_t kSettleMs = 700;
 // having been applied.
 static constexpr uint32_t kQuietMs = 400;
 
+// A scan refused because the station is busy is worth asking for again. The
+// framework retries a failed association once per boot no matter what we set
+// (STA.cpp's `first_connect`, "Retry once for all failure reasons"), and that
+// stray attempt takes a couple of seconds — long enough to swallow the scan
+// that follows the first failure of every boot. Waiting it out costs nothing
+// on the paths where the scan starts first time.
+static constexpr uint32_t kScanRetryQuietMs = 1500;
+static constexpr uint8_t  kMaxScanAttempts  = 3;
+
 // ----------------------------------------------------------------------------
 //  Attempt sequence state
 //
@@ -74,6 +83,9 @@ struct StaState {
   Pending  pending      = Pending::None;
   int      pendingIndex = -1;
   StaPhase pendingPhase = StaPhase::Idle;
+  uint32_t quietMs      = 0;
+
+  uint8_t  scanAttempts = 0;
 
   // Saved-list indices that the scan found on the air, strongest first.
   uint8_t candidates[MAX_WIFI_NETWORKS];
@@ -87,6 +99,8 @@ struct StaState {
     pending = Pending::None;
     pendingIndex = -1;
     pendingPhase = StaPhase::Idle;
+    quietMs = 0;
+    scanAttempts = 0;
     candidateCount = 0;
     candidateAt = 0;
   }
@@ -116,19 +130,25 @@ static void beginScan() {
   s_sta.currentSsid    = "";
   s_sta.phase          = StaPhase::Scanning;
   s_sta.phaseStartedMs = millis();
-  WIFI_LOG("scanning\n");
-  WiFi.scanNetworks(/*async=*/true);
+  s_sta.scanAttempts++;
+
+  // scanNetworks() reports a refused start straight away; without checking it
+  // the refusal is indistinguishable from a scan that ran and saw nothing.
+  int16_t rc = WiFi.scanNetworks(/*async=*/true);
+  WIFI_LOG("scanning (attempt %u, rc %d)\n", (unsigned)s_sta.scanAttempts, (int)rc);
 }
 
 // Every scan and every association goes through here first: drop whatever the
 // radio was doing, then park in Quiescing until it has actually stopped doing
 // it. Without the pause the next call is issued against a station that is
 // still connecting and is rejected by the driver.
-static void quiesceThen(Pending action, int listIndex, StaPhase phase) {
+static void quiesceThen(Pending action, int listIndex, StaPhase phase,
+                        uint32_t quietMs = kQuietMs) {
   WiFi.disconnect(false, false);
   s_sta.pending        = action;
   s_sta.pendingIndex   = listIndex;
   s_sta.pendingPhase   = phase;
+  s_sta.quietMs        = quietMs;
   s_sta.phase          = StaPhase::Quiescing;
   s_sta.phaseStartedMs = millis();
 }
@@ -269,7 +289,7 @@ WifiStaResult wifiStaPoll(WifiSession& out) {
       return WifiStaResult::Failed;
 
     case StaPhase::Quiescing: {
-      if ((uint32_t)(millis() - s_sta.phaseStartedMs) < kQuietMs) {
+      if ((uint32_t)(millis() - s_sta.phaseStartedMs) < s_sta.quietMs) {
         return WifiStaResult::Connecting;
       }
       Pending what = s_sta.pending;
@@ -313,7 +333,13 @@ WifiStaResult wifiStaPoll(WifiSession& out) {
                    (unsigned)s_sta.candidateCount);
         }
       } else {
-        WIFI_LOG("scan unusable (%d); walking the saved list\n", (int)found);
+        if (s_sta.scanAttempts < kMaxScanAttempts) {
+          WIFI_LOG("scan unusable (%d); retrying after a longer wait\n", (int)found);
+          quiesceThen(Pending::Scan, -1, StaPhase::Idle, kScanRetryQuietMs);
+          return WifiStaResult::Connecting;
+        }
+        WIFI_LOG("scan unusable (%d) after %u attempts; walking the saved list\n",
+                 (int)found, (unsigned)s_sta.scanAttempts);
         candidatesFromWholeList(tried);
       }
 
@@ -397,6 +423,7 @@ uint32_t wifiStaBudgetMs() {
   return kCandidateMs + kScanMs
        + attempts * kCandidateMs
        + (attempts + 1) * kQuietMs      // one quiet period before each step
+       + kMaxScanAttempts * (kScanMs + kScanRetryQuietMs)
        + 1000;
 }
 
