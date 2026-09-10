@@ -88,6 +88,7 @@ void SyncScreen::onEnter() {
   remotePct_    = 0.0f;
   remoteOffset_ = 0;
   remoteOffsetValid_ = false;
+  jumpedShort_  = false;
   docHex_       = "";
 
   if (!g_bookview.book.isOpen()) {
@@ -270,14 +271,32 @@ void SyncScreen::applyRemotePosition() {
   if (page < 0) page = 0;
   g_bookview.cursor.pageIndex = page;
 
+  // findPageForOffset extends the page table until it covers `target`, but it
+  // gives up quietly when it cannot: MAX_PAGES, or a paginator that stopped.
+  // It then returns the furthest page it does have, which is nowhere near
+  // where the other device is.
+  //
+  // The target was genuinely reached only if a later page exists (so `target`
+  // falls inside `page`) or pagination walked all the way to EOF. Anything
+  // else means we landed short.
+  const PageOffsetTable& pages = g_bookview.pages;
+  jumpedShort_ = !((page + 1 < pages.count) || pages.eofReached);
+
   // Persist through the same path a normal page turn uses, so the position
   // survives a reboot and the on-disk page cache stays current.
   persistReaderState();
 
   // Our position is now the remote one; tell the server this device is here
   // too, so a later sync from a third device sees a consistent answer.
+  //
+  // Not when we landed short, though: publishing a position the reader never
+  // reached would overwrite the other device's correct one with a truncated
+  // guess, and the next sync from there would silently pull the book
+  // backwards. Leaving the server alone keeps the real position recoverable.
   localPct_ = currentLocalPct();
-  Kosync::push(docHex_, localPct_, localXPointer());
+  if (!jumpedShort_) {
+    Kosync::push(docHex_, localPct_, localXPointer());
+  }
 
   phase_ = Phase::Jumped;
 }
@@ -381,6 +400,16 @@ void SyncScreen::draw() {
       snprintf(buf, sizeof(buf), D_SYNC_HERE_FMT, pctInt(localPct_));
       u8g2.setCursor(MARGIN_X, y);
       u8g2.print(buf);
+      if (jumpedShort_) {
+        // Say both halves: where it stopped, and that the other device was
+        // deliberately left alone so its position is still there to go back to.
+        y += lineH + 2;
+        u8g2.setCursor(MARGIN_X, y);
+        u8g2.print(D_SYNC_JUMPED_SHORT_L1);
+        y += lineH;
+        u8g2.setCursor(MARGIN_X, y);
+        u8g2.print(D_SYNC_JUMPED_SHORT_L2);
+      }
       break;
 
     case Phase::Failed:

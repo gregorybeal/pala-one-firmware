@@ -594,6 +594,8 @@
 #define D_SYNC_ACTION_JUMP          "Jump to other device"
 #define D_SYNC_ACTION_KEEP          "Keep this position"
 #define D_SYNC_JUMPED               "Jumped"
+#define D_SYNC_JUMPED_SHORT_L1     "Could not reach that page."
+#define D_SYNC_JUMPED_SHORT_L2     "Other device unchanged."
 #define D_SYNC_FAILED               "Sync failed"
 #define D_SYNC_ERR_AUTH             "Check user / password"
 #define D_SYNC_ERR_SERVER           "Server error"

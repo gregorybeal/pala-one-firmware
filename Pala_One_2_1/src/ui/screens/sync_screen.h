@@ -65,6 +65,11 @@ private:
   bool     remoteOffsetValid_ = false;
   uint32_t remoteOffset_      = 0;
 
+  // Set when the jump could not actually reach the remote position — the
+  // page table ran out before it got there. The reader still moves as far as
+  // it can, but the position is not published back. See applyRemotePosition.
+  bool     jumpedShort_       = false;
+
   String remoteDevice_;
   int    focusItem_ = 0;      // 0 = jump to remote, 1 = keep local
 

@@ -583,6 +583,8 @@
 #define D_SYNC_ACTION_JUMP          "Ir al otro dispositivo"
 #define D_SYNC_ACTION_KEEP          "Mantener esta posicion"
 #define D_SYNC_JUMPED               "Posicion adoptada"
+#define D_SYNC_JUMPED_SHORT_L1     "No se alcanzó esa página."
+#define D_SYNC_JUMPED_SHORT_L2     "El otro dispositivo no cambió."
 #define D_SYNC_FAILED               "Fallo la sincronizacion"
 #define D_SYNC_ERR_AUTH             "Revise usuario / clave"
 #define D_SYNC_ERR_SERVER           "Error del servidor"
