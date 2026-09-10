@@ -48,6 +48,22 @@
   #define LIB_HEADER_TITLE "Pala One"
 #endif
 
+// Where the device looks for its own published site: OTA manifests and
+// firmware images under <base><channel>/, and the Improv post-provisioning
+// landing page at <base>connected.html. Must end with a slash.
+//
+// Overridable at build time so a fork can serve its own builds without
+// editing tracked source (which would conflict on every merge from
+// upstream). PlatformIO wants the quotes escaped into the flag:
+//
+//   build_flags = -D PALA_SITE_BASE_URL='"https://you.github.io/pala-one-firmware/"'
+//
+// The fork also needs GitHub Pages enabled on its gh-pages branch and a run
+// of the deploy workflow — see README "Pointing OTA at your own fork".
+#ifndef PALA_SITE_BASE_URL
+#define PALA_SITE_BASE_URL "https://paullagier.github.io/pala-one-firmware/"
+#endif
+
 // Language selection (LANG_EN / LANG_ES_LA) and the LANG_EN fallback live in
 // src/lang/lang.h itself — included at the end of this header so every TU
 // that pulls in config.h transitively sees the D_* macros.

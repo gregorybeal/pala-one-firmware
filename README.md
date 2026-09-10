@@ -79,7 +79,38 @@ Once the device has Wi-Fi credentials stored (see [Wi-Fi provisioning](#wi-fi-pr
 ### Requirements
 
 - Wi-Fi credentials must be provisioned first (see below). If none are stored the screen shows *"No Wi-Fi credentials — setup via web installer"*.
-- The device must be able to reach `paullagier.github.io` over HTTPS. A local network without internet access will be reported as *"Cannot reach update server"*.
+- The device must be able to reach the update host over HTTPS (`paullagier.github.io` by default). A local network without internet access will be reported as *"Cannot reach update server"*.
+
+### Pointing OTA at your own fork
+
+A fork can serve its own builds — the device will then check, and install,
+from your repo instead of upstream. Four things have to line up:
+
+1. **Publish the site.** The [deploy workflow](.github/workflows/deploy-installer.yml)
+   needs no secrets beyond `GITHUB_TOKEN`, so it runs on a fork as-is. It
+   triggers on a push to `dev` or a `v*` tag; from any other branch, run it by
+   hand from the Actions tab (**Run workflow**, pick a channel).
+2. **Enable GitHub Pages** on the fork: Settings → Pages → Source
+   *Deploy from a branch*, branch `gh-pages`, folder `/`. Without this the
+   workflow still writes `gh-pages` but nothing is served, and the device
+   reports *"Cannot reach update server"*.
+3. **Point the firmware at it** by overriding `PALA_SITE_BASE_URL` in your
+   env's `build_flags` (see `platformio.ini`). This also moves the Improv
+   post-provisioning redirect, which is baked into the firmware:
+
+   ```
+   build_flags = ${env:wireless-paper-v1_2.build_flags} -D LANG_EN
+                 -D PALA_SITE_BASE_URL='"https://you.github.io/pala-one-firmware/"'
+   ```
+4. **Flash that build over USB once.** OTA can only move a device to a site
+   it already knows about, so the first build carrying the new URL has to
+   arrive by cable.
+
+Note the version check is a plain string comparison against `FW_VERSION`
+(`src/hal/ota.cpp`), and both sides derive it from `git describe --tags
+--always`. A fork with no tags gets a bare short SHA, which works fine for the
+`dev` channel — every new commit reads as a new version. The `stable` channel
+needs a tag, so `/stable/` stays empty until you push one.
 
 
 ## Language

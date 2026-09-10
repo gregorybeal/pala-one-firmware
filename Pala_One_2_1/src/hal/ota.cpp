@@ -13,8 +13,7 @@
 extern const uint8_t x509_crt_imported_bundle_bin_start[] asm("_binary_x509_crt_bundle_start");
 extern const uint8_t x509_crt_imported_bundle_bin_end[]   asm("_binary_x509_crt_bundle_end");
 
-static constexpr const char* kOtaBaseUrl =
-    "https://paullagier.github.io/pala-one-firmware/";
+static constexpr const char* kOtaBaseUrl = PALA_SITE_BASE_URL;
 
 // How long to wait for the next data chunk before aborting the download.
 static constexpr uint32_t kDownloadStallMs = 30000;
