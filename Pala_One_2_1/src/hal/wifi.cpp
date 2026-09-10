@@ -228,6 +228,22 @@ bool wifiStaBegin() {
   s_sta.reset();
   WiFi.mode(WIFI_STA);
 
+  // Take the wheel off the framework for the duration of the walk.
+  //
+  // arduino-esp32's STA disconnect handler reconnects on its own: on a
+  // failed association it calls disconnect() then connect() again from
+  // inside the event callback (STA.cpp, _is_staReconnectableReason /
+  // _autoReconnect, which the STAClass constructor defaults to true). So
+  // between us giving up on one network and asking for the next, the driver
+  // has quietly re-entered "connecting" for the network we just abandoned —
+  // and then refuses the next request with "sta is connecting, cannot set
+  // config", or refuses to scan at all.
+  //
+  // Walking a list of networks means we decide what to try and when, so the
+  // automatic retry is not helping. It goes back on once we are actually
+  // associated, where reconnecting after a blip is exactly what we want.
+  WiFi.setAutoReconnect(false);
+
   // Fast path: the network that worked last time, if it is still saved.
   // Skipping the scan is the whole point — it makes the ordinary "I am at
   // home" case as quick as it was when only one network could be stored.
@@ -323,6 +339,9 @@ WifiStaResult wifiStaPoll(WifiSession& out) {
         WIFI_LOG("connected to \"%s\" as %s\n",
                  s_sta.currentSsid.c_str(), ip.toString().c_str());
 
+        // Session is live — let the framework hold it up again.
+        WiFi.setAutoReconnect(true);
+
         // Remember what worked so the next session can skip the scan.
         WifiCreds::setLastGoodSsid(s_sta.currentSsid);
 
@@ -382,6 +401,7 @@ uint32_t wifiStaBudgetMs() {
 }
 
 void wifiStaAbort() {
+  WiFi.setAutoReconnect(true);
   if (s_sta.phase == StaPhase::Scanning) WiFi.scanDelete();
   WiFi.disconnect(true, true);
   WiFi.mode(WIFI_OFF);
@@ -406,6 +426,7 @@ WifiSession wifiBeginAccessPoint() {
 }
 
 void wifiEnd() {
+  WiFi.setAutoReconnect(true);
   if (s_sta.phase == StaPhase::Scanning) WiFi.scanDelete();
   MDNS.end();
   WiFi.softAPdisconnect(true);
