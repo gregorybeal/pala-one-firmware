@@ -60,6 +60,8 @@ Step 3 exists because a scan cannot see everything. A **hidden** access point ne
 
 The cost is that being genuinely away from all of them takes one association timeout per saved network before the SoftAP appears, instead of failing as soon as the scan comes back. That only applies in the case that was going to fail anyway.
 
+Between every step the radio is given a moment to go quiet. `WiFi.disconnect()` only *requests* a disconnect, and a scan or association issued immediately afterwards is rejected by the driver with the station still connecting — which looks exactly like a network that failed, so a working network would be skipped without its credentials ever being applied.
+
 Adding a network whose name is already saved replaces that network's password instead of creating a duplicate; adding a sixth network evicts the oldest.
 
 Saved passwords are never displayed back in the web UI — only whether a network has one.

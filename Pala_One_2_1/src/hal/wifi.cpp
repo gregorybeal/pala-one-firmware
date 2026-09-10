@@ -35,6 +35,16 @@ static constexpr uint32_t kScanMs = 5000;
 // whole candidate list would be discarded inside a single poll.
 static constexpr uint32_t kSettleMs = 700;
 
+// How long to let the radio go quiet after a disconnect before asking it to
+// scan or associate again. WiFi.disconnect() only *requests* a disconnect;
+// issuing the next WiFi.begin() or scanNetworks() straight afterwards finds
+// the station still in its connecting state, and the driver rejects the call
+// outright ("sta is connecting, cannot set config"). The rejected attempt
+// then looks exactly like a network that failed to associate — so a
+// perfectly good saved network gets skipped without its credentials ever
+// having been applied.
+static constexpr uint32_t kQuietMs = 400;
+
 // ----------------------------------------------------------------------------
 //  Attempt sequence state
 //
@@ -45,16 +55,25 @@ namespace {
 
 enum class StaPhase {
   Idle,
+  Quiescing,        // disconnect issued; waiting for the radio to go idle
   TryingLastGood,   // associating with the network that worked last time
   Scanning,         // async scan in flight
   TryingCandidate,  // associating with candidates_[candidateAt_]
   Exhausted
 };
 
+// What Quiescing hands over to once the radio has settled.
+enum class Pending { None, Scan, Attempt };
+
 struct StaState {
   StaPhase phase = StaPhase::Idle;
   String   currentSsid;
   uint32_t phaseStartedMs = 0;
+
+  // Queued across the quiet period.
+  Pending  pending      = Pending::None;
+  int      pendingIndex = -1;
+  StaPhase pendingPhase = StaPhase::Idle;
 
   // Saved-list indices that the scan found on the air, strongest first.
   uint8_t candidates[MAX_WIFI_NETWORKS];
@@ -65,6 +84,9 @@ struct StaState {
     phase = StaPhase::Idle;
     currentSsid = "";
     phaseStartedMs = 0;
+    pending = Pending::None;
+    pendingIndex = -1;
+    pendingPhase = StaPhase::Idle;
     candidateCount = 0;
     candidateAt = 0;
   }
@@ -91,14 +113,24 @@ static void beginAttempt(int listIndex, StaPhase phase) {
 }
 
 static void beginScan() {
-  // Clear the failed association first — scanning on top of a half-open
-  // connection attempt gives unreliable results.
-  WiFi.disconnect(false, false);
   s_sta.currentSsid    = "";
   s_sta.phase          = StaPhase::Scanning;
   s_sta.phaseStartedMs = millis();
   WIFI_LOG("scanning\n");
   WiFi.scanNetworks(/*async=*/true);
+}
+
+// Every scan and every association goes through here first: drop whatever the
+// radio was doing, then park in Quiescing until it has actually stopped doing
+// it. Without the pause the next call is issued against a station that is
+// still connecting and is rejected by the driver.
+static void quiesceThen(Pending action, int listIndex, StaPhase phase) {
+  WiFi.disconnect(false, false);
+  s_sta.pending        = action;
+  s_sta.pendingIndex   = listIndex;
+  s_sta.pendingPhase   = phase;
+  s_sta.phase          = StaPhase::Quiescing;
+  s_sta.phaseStartedMs = millis();
 }
 
 // Build the candidate list from a finished scan: saved networks that are
@@ -207,9 +239,9 @@ bool wifiStaBegin() {
            (unsigned)WifiCreds::count(), lastGood.c_str());
 
   if (idx >= 0) {
-    beginAttempt(idx, StaPhase::TryingLastGood);
+    quiesceThen(Pending::Attempt, idx, StaPhase::TryingLastGood);
   } else {
-    beginScan();
+    quiesceThen(Pending::Scan, -1, StaPhase::Idle);
   }
   return true;
 }
@@ -219,6 +251,22 @@ WifiStaResult wifiStaPoll(WifiSession& out) {
     case StaPhase::Idle:
     case StaPhase::Exhausted:
       return WifiStaResult::Failed;
+
+    case StaPhase::Quiescing: {
+      if ((uint32_t)(millis() - s_sta.phaseStartedMs) < kQuietMs) {
+        return WifiStaResult::Connecting;
+      }
+      Pending what = s_sta.pending;
+      s_sta.pending = Pending::None;
+
+      if (what == Pending::Scan) {
+        beginScan();
+      } else {
+        beginAttempt(s_sta.pendingIndex, s_sta.pendingPhase);
+        if (s_sta.phase == StaPhase::Exhausted) return WifiStaResult::Failed;
+      }
+      return WifiStaResult::Connecting;
+    }
 
     case StaPhase::Scanning: {
       int16_t found = WiFi.scanComplete();
@@ -235,6 +283,9 @@ WifiStaResult wifiStaPoll(WifiSession& out) {
         uint8_t n = collectCandidates(found, tried);
         WiFi.scanDelete();
         WIFI_LOG("scan found %d ap(s), %u saved on the air\n", (int)found, (unsigned)n);
+        // Zero access points anywhere means the scan did not run properly,
+        // not that the airwaves are empty. Either way the saved list is the
+        // only thing left to go on.
         if (n == 0) {
           // Nothing of ours in the results. Usually that means we really are
           // somewhere else — but a hidden network is invisible to a scan no
@@ -256,7 +307,8 @@ WifiStaResult wifiStaPoll(WifiSession& out) {
         return WifiStaResult::Failed;
       }
 
-      beginAttempt(s_sta.candidates[s_sta.candidateAt], StaPhase::TryingCandidate);
+      quiesceThen(Pending::Attempt, s_sta.candidates[s_sta.candidateAt],
+                  StaPhase::TryingCandidate);
       return WifiStaResult::Connecting;
     }
 
@@ -294,7 +346,7 @@ WifiStaResult wifiStaPoll(WifiSession& out) {
         // The remembered network isn't reachable — find out what is.
         WIFI_LOG("last-good \"%s\" failed (status %d, %ums)\n",
                  s_sta.currentSsid.c_str(), (int)st, (unsigned)elapsed);
-        beginScan();
+        quiesceThen(Pending::Scan, -1, StaPhase::Idle);
         return WifiStaResult::Connecting;
       }
 
@@ -308,8 +360,8 @@ WifiStaResult wifiStaPoll(WifiSession& out) {
         s_sta.phase = StaPhase::Exhausted;
         return WifiStaResult::Failed;
       }
-      WiFi.disconnect(false, false);
-      beginAttempt(s_sta.candidates[s_sta.candidateAt], StaPhase::TryingCandidate);
+      quiesceThen(Pending::Attempt, s_sta.candidates[s_sta.candidateAt],
+                  StaPhase::TryingCandidate);
       return WifiStaResult::Connecting;
     }
   }
@@ -322,8 +374,11 @@ uint32_t wifiStaBudgetMs() {
   // Last-good attempt + scan + one attempt per saved network, with a little
   // slack. Callers use this as a safety net; the sequence normally reports
   // Failed well before it.
-  return kCandidateMs + kScanMs +
-         (uint32_t)(WifiCreds::count() + 1) * kCandidateMs + 1000;
+  const uint32_t attempts = (uint32_t)WifiCreds::count() + 1;
+  return kCandidateMs + kScanMs
+       + attempts * kCandidateMs
+       + (attempts + 1) * kQuietMs      // one quiet period before each step
+       + 1000;
 }
 
 void wifiStaAbort() {
