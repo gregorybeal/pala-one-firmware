@@ -21,12 +21,12 @@ https://ko-fi.com/s/e14ed892ea
 
 ## Install (no toolchain needed)
 
-[Web Installer](https://paullagier.github.io/pala-one-firmware/)
+[Web Installer](https://gregorybeal.github.io/pala-one-firmware/)
 
 The easiest way to flash a board is via the web installer. Plug your Heltec Wireless Paper into a desktop computer running Chrome, Edge, or Opera, then open the installer page and pick a channel:
 
-- **Stable** ([`/stable/`](https://paullagier.github.io/pala-one-firmware/stable/)) — latest tagged release (`vX.Y.Z`). Use this unless you have a reason not to.
-- **Development** ([`/dev/`](https://paullagier.github.io/pala-one-firmware/dev/)) — latest build from `dev`; new features, may break.
+- **Stable** ([`/stable/`](https://gregorybeal.github.io/pala-one-firmware/stable/)) — latest tagged release (`vX.Y.Z`). Use this unless you have a reason not to.
+- **Development** ([`/dev/`](https://gregorybeal.github.io/pala-one-firmware/dev/)) — latest build from `dev`; new features, may break.
 
 Each channel page lists both display revisions (V1.1 / V1.2) and both languages (English / Spanish-LA) — four install buttons total. Pick the one that matches your board + language and click **Install**. The installer keeps existing reading progress, bookmarks, and uploaded books across re-flashes.
 
@@ -61,7 +61,7 @@ Once the device has Wi-Fi credentials stored (see [Wi-Fi provisioning](#wi-fi-pr
 ### Requirements
 
 - Wi-Fi credentials must be provisioned first (see below). If none are stored the screen shows *"No Wi-Fi credentials — setup via web installer"*.
-- The device must be able to reach `paullagier.github.io` over HTTPS. A local network without internet access will be reported as *"Cannot reach update server"*.
+- The device must be able to reach `gregorybeal.github.io` over HTTPS. A local network without internet access will be reported as *"Cannot reach update server"*.
 
 
 ## Language
