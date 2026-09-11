@@ -40,11 +40,6 @@ The board version is usually printed on the back of the PCB.
 
 Pick your board's revision in the build step below — either by uncommenting the matching `#define` at the top of `Pala_One_2_1/Pala_One_2_1.ino` (Arduino IDE), or by selecting the matching env (PlatformIO).
 
-## Wi-Fi provisioning (Improv)
-
-Besides the SoftAP captive portal, the firmware supports **Improv Serial** Wi-Fi provisioning ([improv-wifi.com](https://www.improv-wifi.com)) over the USB-CDC port, using the [`jnthas/Improv-WiFi-Library`](https://github.com/jnthas/Improv-WiFi-Library). When the board is plugged into a computer, a browser can hand it Wi-Fi credentials directly — the [web installer](https://gregorybeal.github.io/pala-one-firmware/) does this right after flashing and then redirects to `connected.html`.
-
-Saved credentials let the device join your network in **Station mode** the next time it enters the web UI / upload mode; if none are saved (or the join fails) it falls back to the open SoftAP at `192.168.4.1`.
 
 ### Multiple networks
 
@@ -86,55 +81,7 @@ Once the device has Wi-Fi credentials stored (see [Wi-Fi provisioning](#wi-fi-pr
 ### Requirements
 
 - Wi-Fi credentials must be provisioned first (see below). If none are stored the screen shows *"No Wi-Fi credentials — setup via web installer"*.
-- The device must be able to reach the update host over HTTPS (`gregorybeal.github.io` by default). A local network without internet access will be reported as *"Cannot reach update server"*.
-
-### Pointing OTA at your own fork
-
-A fork can serve its own builds — the device will then check, and install,
-from your repo instead of upstream. Four things have to line up:
-
-1. **Publish the site.** The [deploy workflow](.github/workflows/deploy-installer.yml)
-   needs no secrets beyond `GITHUB_TOKEN`, so it runs on a fork as-is. It
-   triggers on a push to `dev` or a `v*` tag; from any other branch, run it by
-   hand from the Actions tab (**Run workflow**, pick a channel).
-2. **Enable GitHub Pages** on the fork: Settings → Pages → Source
-   *Deploy from a branch*, branch `gh-pages`, folder `/`. Without this the
-   workflow still writes `gh-pages` but nothing is served, and the device
-   reports *"Cannot reach update server"*.
-3. **Point the firmware at it.** Set a repository *variable* named
-   `SITE_BASE_URL` (Settings → Secrets and variables → Actions → Variables)
-   to your Pages URL, trailing slash included:
-
-   ```
-   SITE_BASE_URL = https://you.github.io/pala-one-firmware/
-   ```
-
-   The workflow's *Compose build flags* step turns that into
-   `-D PALA_SITE_BASE_URL=...` for all four builds. Upstream leaves the
-   variable unset and keeps the default in `src/config.h`, so nothing tracked
-   has to change and the branch stays mergeable. The same flag also moves the
-   Improv post-provisioning redirect, which is baked into the firmware.
-
-   For a **local** build, pass it on the command line instead — the repository
-   variable only reaches CI:
-
-   ```
-   PLATFORMIO_BUILD_FLAGS='-D PALA_SITE_BASE_URL='"'"'"https://you.github.io/pala-one-firmware/"'"'"'' \
-     pio run -e wireless-paper-v1_2-en -t upload
-   ```
-4. **Get that build onto the device over USB once.** OTA can only move a
-   device to a site it already knows about, so the first firmware carrying the
-   new URL has to arrive by cable — either the local build above, or your own
-   web installer at `https://you.github.io/pala-one-firmware/`, which now
-   serves binaries built with the variable set.
-
-**Push your tags.** Both the manifest and `FW_VERSION` come from `git describe
---tags --always`, and CI checks out with `fetch-depth: 0` — so if your fork has
-no tags, CI stamps a bare short SHA while your local builds stamp
-`v3.0-8-gabc1234`. The OTA check is a plain string comparison
-(`src/hal/ota.cpp`), so those two never match and a locally flashed device
-reports an update available forever. `git push origin --tags` once, and the two
-agree. It also unblocks `/stable/`, which stays empty until a `v*` tag exists.
+- The device must be able to reach `gregorybeal.github.io` over HTTPS. A local network without internet access will be reported as *"Cannot reach update server"*.
 
 
 ## Language
