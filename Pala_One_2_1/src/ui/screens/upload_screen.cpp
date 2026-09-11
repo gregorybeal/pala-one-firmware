@@ -17,7 +17,6 @@
 // How long to wait for an STA association before falling back to AP. Long
 // enough for a typical 2.4 GHz home network (~1-3s); short enough that an
 // unreachable network doesn't leave the user staring at "Connecting…".
-static constexpr uint32_t kStaTimeoutMs = 5000;
 
 // ---- Drawing --------------------------------------------------------------
 static void drawConnecting(const String& ssid) {
@@ -126,7 +125,8 @@ void UploadScreen::beginSession() {
   if (wifiStaBegin()) {
     phase_        = Phase::ConnectingSta;
     staStartedMs_ = millis();
-    drawConnecting(WifiCreds::ssid());
+    connectingSsid_ = wifiStaCurrentSsid();
+    drawConnecting(connectingSsid_);
   } else {
     // No stored creds — straight to AP, no point showing a splash for a
     // path we know will time out.
@@ -187,9 +187,17 @@ void UploadScreen::onIdleTick() {
       return;
     }
     if (r == WifiStaResult::Failed ||
-        (uint32_t)(millis() - staStartedMs_) > kStaTimeoutMs) {
+        (uint32_t)(millis() - staStartedMs_) > wifiStaBudgetMs()) {
       fallbackToAp();
       return;
+    }
+    // With several networks saved the HAL walks them in turn; repaint when it
+    // moves on so the splash names the network actually being tried rather
+    // than sitting on the first one for the whole sequence.
+    String now = wifiStaCurrentSsid();
+    if (now != connectingSsid_) {
+      connectingSsid_ = now;
+      drawConnecting(connectingSsid_);
     }
     return;   // still associating — server isn't up yet
   }

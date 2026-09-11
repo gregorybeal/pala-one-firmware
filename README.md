@@ -41,6 +41,26 @@ The board version is usually printed on the back of the PCB.
 Pick your board's revision in the build step below — either by uncommenting the matching `#define` at the top of `Pala_One_2_1/Pala_One_2_1.ino` (Arduino IDE), or by selecting the matching env (PlatformIO).
 
 
+### Multiple networks
+
+Up to **5** networks can be saved, so the device works at home, at work and off a phone hotspot without being re-provisioned each time. Improv adds to that list rather than replacing it, and networks can also be added from the device's own web UI under **Wi-Fi** — no USB cable needed once you can reach the page at all (the SoftAP fallback is always available).
+
+Which one it joins is decided automatically, and the list is **not** a priority order:
+
+1. the network that connected last time, tried immediately — no scan, so being at home is as quick as it was with a single stored network
+2. failing that, a scan, then the saved networks actually on the air, strongest first
+3. failing *that*, the saved networks the scan did not report, tried directly in list order
+
+Step 3 exists because a scan cannot see everything. A **hidden** access point never announces its SSID, so it can never be matched against the saved list however close you are standing to it — the only way in is to ask for it by name. The same goes for a network the scan missed for duller reasons: a weak or busy channel, or the scan being cut short. Reaching the access-point fallback therefore means every saved network was actually attempted, not merely that none of them showed up in a scan.
+
+The cost is that being genuinely away from all of them takes one association timeout per saved network before the SoftAP appears, instead of failing as soon as the scan comes back. That only applies in the case that was going to fail anyway.
+
+Between every step the radio is given a moment to go quiet. `WiFi.disconnect()` only *requests* a disconnect, and a scan or association issued immediately afterwards is rejected by the driver with the station still connecting — which looks exactly like a network that failed, so a working network would be skipped without its credentials ever being applied.
+
+Adding a network whose name is already saved replaces that network's password instead of creating a duplicate; adding a sixth network evicts the oldest.
+
+Saved passwords are never displayed back in the web UI — only whether a network has one.
+
 ## OTA firmware updates
 
 Once the device has Wi-Fi credentials stored (see [Wi-Fi provisioning](#wi-fi-provisioning-improv)), firmware updates can be installed wirelessly — no USB cable, no computer required.
@@ -87,6 +107,129 @@ Out of the box, a first visit defaults to **light**. To change the firmware defa
 - **PlatformIO** — add `-D WEB_THEME_DARK` to your env's `build_flags` if you want dark as the default; otherwise leave it alone.
 
 The build-time default only affects the *first* visit from a given browser — once the toggle is used, the localStorage choice wins from then on.
+
+## EPUB support
+
+Books can be uploaded as plain `.txt` or as `.epub`. The device itself still only
+ever stores and reads UTF-8 plain text — the EPUB is unpacked and flattened **in
+your browser**, on the upload page, and the resulting text is what gets sent to
+`/books`.
+
+That split is deliberate. It keeps the firmware free of a ZIP inflater and an
+XHTML parser (neither of which fits comfortably in the RAM budget alongside the
+page-offset table), and it means the paginator, page cache, bookmarks and
+byte-offset progress model are completely unchanged by the feature.
+
+What survives the conversion:
+
+- spine order, including EPUB 3 documents, with `linear="no"` items skipped
+- paragraph and heading breaks; everything else (markup, CSS, scripts, the
+  navigation document) is dropped
+- `dc:title` and `dc:creator`, used to name the stored file — an EPUB titled
+  *The Wind in the Willows* by Kenneth Grahame lands as
+  `The Wind in the Willows - Kenneth Grahame.txt`
+
+The converter uses only native browser APIs (`DecompressionStream`, `DOMParser`),
+because the SoftAP captive portal has no route to the internet and no CDN is
+reachable. It needs Chrome/Edge 103+, Safari 16.4+, or Firefox 113+ — the same
+browser set the web installer already requires. On anything older the upload card
+falls back to txt-only and says so.
+
+ZIP64 archives and encrypted (DRM) EPUBs are not supported.
+
+
+## KOReader progress sync
+
+The device can keep its reading position in step with KOReader on your phone,
+Kobo, Kindle or PocketBook, using KOReader's own
+[`kosync`](https://github.com/koreader/koreader-sync-server) protocol.
+
+### Setup
+
+1. Open the web UI and go to **Sync**.
+2. Enter the server (the public `https://sync.koreader.rocks` is the default; a
+   self-hosted instance works too, including plain `http://` on your LAN), plus
+   your KOReader sync username and password. **Register** creates a new account;
+   **Test connection** checks an existing one.
+3. Tick **Enable sync** and save. Only the MD5 of the password is stored on the
+   device, never the password itself — that digest is exactly what the protocol
+   sends as `x-auth-key`.
+4. At least one Wi-Fi network must be saved (see
+   [Wi-Fi provisioning](#wi-fi-provisioning-improv) and
+   [Multiple networks](#multiple-networks)). The sync page links straight to
+   the Wi-Fi page when none is.
+
+### Use
+
+Open a book, bring up the reader menu (**click-hold** by default), select
+**Sync progress** and confirm with **2×**. The device joins Wi-Fi, fetches the
+position from the server, and:
+
+- if the two agree, pushes your position and shows *In sync*
+- if they differ, shows both — *Other: 47%* / *Here: 31%* — and lets you choose
+  **Jump to other device** or **Keep this position**. **3×** leaves without
+  changing either side.
+
+Sync only ever happens when you ask for it. Nothing runs in the background, and
+the radio is shut down again before you are returned to the page.
+
+### Book identifiers
+
+A book syncs under the same identifier KOReader uses: a partial MD5 of the
+*original* file. Because the device rewrites text as it stores it, that hash has
+to be taken before upload — so it is computed in the browser and recorded
+automatically for anything uploaded through the web UI, for `.epub` and `.txt`
+alike. For KOReader to agree, it must be set to the **binary** document-matching
+method (its default) and be reading the same source file.
+
+Books that were already on the device before this feature existed have no
+identifier and will report *No sync id for this book*. Re-upload them, or paste
+the value in by hand under **Sync → Book identifiers**. Re-uploading also builds
+the spine map, which pasting the id by hand does not — a hand-entered book syncs
+by percentage only.
+
+### How positions are matched
+
+KOReader stores a position as an XPointer into crengine's DOM — something like
+`/body/DocFragment[11]/body/div/p[3].0` — which names a spine document and a
+paragraph inside it. Pala One's position is a byte offset into the flattened
+text. The two are reconciled through a **spine map** built in your browser when
+the EPUB is uploaded, and stored beside the book as `sm_<hash>.bin`:
+
+- **KOReader → Pala** decodes the XPointer against the map and lands on the
+  paragraph KOReader is on, not on a proportional guess.
+- **Pala → KOReader** composes an XPointer for the current page, so the reverse
+  direction is structural too.
+
+The map is derived data, not configuration: it is generated automatically at
+upload, needs no setup, and is deleted and renamed along with the book. Novels
+land around 20–30 KB against a 4.5 MB partition.
+
+Without a map — a plain `.txt`, a book uploaded before this existed, or an EPUB
+whose structure crengine shaped differently than the flattener did — sync falls
+back to matching by **percentage**. That is the older behaviour and it is only
+proportional: expect to land within a page or two, and biased late, because
+KOReader's percentage counts front matter and other content the flattener drops.
+Re-upload a book to give it a map.
+
+### Known limitations
+
+- **The percentage fallback lands late.** Anything KOReader renders but the
+  flattener drops (the navigation document, `linear="no"` items, images, tables)
+  sits in KOReader's denominator and not in ours, so a percentage-only sync
+  overshoots — most at the start of a book, shrinking to nothing at the end.
+  This is exactly what the spine map removes.
+- **The map is a good-faith reconstruction of crengine's DOM, not a copy of
+  it.** crengine autoboxes stray inline content and keeps or drops elements on
+  its own rules, so a pointer's deepest steps may not exist in the map. The
+  device retries against successively shallower prefixes and, failing that,
+  falls back to the fragment start; a resolved position that lands more than
+  25 % away from the percentage the server sent alongside it is rejected
+  outright rather than trusted.
+- **There is no clock on the device** (no NTP, no RTC date), so "which side is
+  newer" cannot be decided automatically. That is why a difference always
+  prompts rather than resolving itself.
+
 
 ## Device lock
 
@@ -316,7 +459,8 @@ Return from `app_main` to exit back to the Apps menu. Apps decide their own exit
 
 ## Features
 
-- TXT book support
+- TXT and EPUB book support
+- Reading-progress sync with KOReader devices (kosync)
 - Adjustable font size and line spacing
 - Font family choice (Helvetica / OpenDyslexic)
 - Bionic reading mode
@@ -329,6 +473,7 @@ Return from `app_main` to exit back to the Apps menu. Apps decide their own exit
 - Custom screensaver image
 - Adjustable idle sleep timeout
 - Wi-Fi provisioning (Improv) + captive-portal web UI
+- Up to 5 saved Wi-Fi networks, joined automatically
 - OTA firmware updates over Wi-Fi (see [OTA firmware updates](#ota-firmware-updates))
 - User-installable apps (see [Apps](#apps))
 - Deep sleep mode

@@ -86,6 +86,7 @@
 #define D_UPDATE_CONNECTING         "Connecting..."
 #define D_UPDATE_CONN_FAILED        "Wi-Fi connection failed"
 #define D_UPDATE_CHECKING           "Checking..."
+#define D_PAGINATE_HEADER          "Indexing"
 #define D_UPDATE_SERVER_FAIL        "Cannot reach update server"
 #define D_UPDATE_UP_TO_DATE         "Already up to date"
 #define D_UPDATE_AVAILABLE_PREFIX   "Available: "
@@ -170,6 +171,8 @@
 #define D_WEB_NAV_LIST              "List"
 #define D_WEB_NAV_SCREENSAVER       "Screensaver"
 #define D_WEB_NAV_SETTINGS          "Settings"
+#define D_WEB_NAV_SYNC              "Sync"
+#define D_WEB_NAV_WIFI              "Wi-Fi"
 #define D_WEB_NAV_FACTORY_RESET     "Factory reset"
 #define D_WEB_NAV_BACK              "Back"
 
@@ -183,8 +186,24 @@
 #define D_WEB_HOME_FREE_LABEL       "Free: "
 #define D_WEB_HOME_STORAGE_WARN     "&#9888; Storage is not available or almost full. If uploads fail, delete books or use Factory reset from this web UI."
 #define D_WEB_UPLOAD_BOOK_HEADING   "Upload book"
-#define D_WEB_UPLOAD_BOOK_DESC      "Send UTF-8 plain text files to <b>/books</b> on the device, then sort them into folders from the Files page."
+#define D_WEB_UPLOAD_BOOK_DESC      "Send UTF-8 plain text (<b>.txt</b>) or <b>.epub</b> files to <b>/books</b> on the device, then sort them into folders from the Files page. EPUBs are flattened to text in your browser before upload."
 #define D_WEB_UPLOAD_BOOK_BUTTON    "Upload"
+// EPUB upload — strings consumed by the browser-side converter in
+// src/web/epub_js.h. They are emitted into a JS double-quoted object literal,
+// so they MUST NOT contain a double quote or a backslash; see the
+// D_WEB_CONFIRM_* rule in lang.h for the same class of constraint.
+#define D_WEB_EPUB_UNSUPPORTED      "This browser cannot open EPUB files. Plain text (.txt) uploads still work."
+#define D_WEB_EPUB_HASHING          "Reading file..."
+#define D_WEB_EPUB_READING          "Opening EPUB..."
+#define D_WEB_EPUB_CONVERTING       "Converting section"
+#define D_WEB_EPUB_UPLOADING        "Uploading to device..."
+#define D_WEB_EPUB_ERR_NOT_EPUB     "That file is not a readable EPUB."
+#define D_WEB_EPUB_ERR_NO_ROOT      "EPUB is missing its package document."
+#define D_WEB_EPUB_ERR_NO_TEXT      "No readable text found in this EPUB."
+#define D_WEB_EPUB_ERR_ZIP64        "ZIP64 EPUB files are not supported."
+#define D_WEB_EPUB_ERR_METHOD       "Unsupported ZIP compression method"
+#define D_WEB_EPUB_ERR_BAD_XML      "This EPUB contains malformed XML."
+#define D_WEB_EPUB_ERR_UPLOAD       "Upload failed"
 #define D_WEB_MANAGE_FILES_BUTTON   "Manage files"
 #define D_WEB_INSTALL_APP_HEADING   "Install app"
 #define D_WEB_INSTALL_APP_DESC      "Upload a Pala app binary (<b>.bin</b>) to <b>/apps</b>. The header is validated before commit; only files with the correct magic and API version are accepted. Open <b>Apps</b> from the library to launch."
@@ -506,5 +525,115 @@
 #define D_WEB_SS_DST_SLOT_PREFIX    "Rotation slot "
 #define D_WEB_SS_DST_OVERWRITE      " (overwrite)"
 #define D_WEB_SS_UPLOAD_EDITED      "Upload edited image"
+
+// ----------------------------------------------------------------------------
+//  KOReader sync (web/kosync.cpp)
+//
+//  Several of these land inside single-quoted HTML attributes or a JS
+//  confirm(), so — as with D_WEB_CONFIRM_* — none of them may contain a
+//  single quote or a backslash.
+// ----------------------------------------------------------------------------
+#define D_WEB_KS_TITLE              "KOReader sync"
+#define D_WEB_KS_SUBTITLE           "Keep your reading position in step with your other KOReader devices."
+#define D_WEB_KS_NO_WIFI            "&#9888; No Wi-Fi networks saved. Syncing needs one."
+#define D_WEB_KS_NO_WIFI_LINK       "Add a network"
+#define D_WEB_KS_ACCOUNT_HEADING    "Sync account"
+#define D_WEB_KS_ACCOUNT_INTRO      "Use the same account as KOReader. The public server at sync.koreader.rocks works out of the box, or point this at your own."
+#define D_WEB_KS_SERVER_LABEL       "Server"
+#define D_WEB_KS_SERVER_HINT        "Leave blank for the default. A bare host name is assumed to be https."
+#define D_WEB_KS_USER_LABEL         "Username"
+#define D_WEB_KS_PASS_LABEL         "Password"
+#define D_WEB_KS_PASS_KEEP          "unchanged"
+#define D_WEB_KS_PASS_HINT          "Only the MD5 of your password is stored on the device, never the password itself. Leave blank to keep the saved one."
+#define D_WEB_KS_ENABLE_LABEL       "Enable sync"
+#define D_WEB_KS_ENABLE_HINT        "Adds a Sync progress entry to the reader menu on the device. Sync always happens on request, never in the background."
+#define D_WEB_KS_SAVE_BUTTON        "Save"
+#define D_WEB_KS_TEST_BUTTON        "Test connection"
+#define D_WEB_KS_REGISTER_BUTTON    "Register"
+#define D_WEB_KS_REGISTER_HINT      "Register creates a new account on the server with the username and password above."
+#define D_WEB_KS_CONFIRM_CLEAR      "Forget the stored sync account?"
+#define D_WEB_KS_CLEAR_BUTTON       "Forget account"
+#define D_WEB_KS_DOCS_HEADING       "Book identifiers"
+#define D_WEB_KS_DOCS_INTRO         "Each book syncs under the same identifier KOReader uses &mdash; a partial MD5 of the original file. It is recorded automatically when you upload through this page. Books added before sync existed show as not set; re-upload them, or paste the value from KOReader here."
+#define D_WEB_KS_DOCS_EMPTY         "No books on the device yet."
+#define D_WEB_KS_DOC_SET            "Sync identifier recorded"
+#define D_WEB_KS_DOC_UNSET          "No sync identifier &mdash; this book will not sync"
+#define D_WEB_KS_DOC_PLACEHOLDER    "32 hex characters"
+#define D_WEB_KS_DOC_SAVE_BUTTON    "Save"
+#define D_WEB_KS_DOC_HINT           "Clear the field and save to remove the identifier."
+#define D_WEB_KS_MSG_OK             "Connected. The account works."
+#define D_WEB_KS_MSG_NOT_CONFIGURED "Fill in the server, username and password first."
+#define D_WEB_KS_MSG_NO_NETWORK     "Could not reach the sync server."
+#define D_WEB_KS_MSG_UNAUTHORIZED   "Server rejected the username or password."
+#define D_WEB_KS_MSG_NOT_FOUND      "Server has no saved progress for this book yet."
+#define D_WEB_KS_MSG_TAKEN          "That username is already registered."
+#define D_WEB_KS_MSG_SERVER_ERROR   "Sync server returned an error"
+#define D_WEB_KS_MSG_CLEARED        "Sync account forgotten."
+#define D_WEB_KS_MSG_NEED_BOTH      "Enter both a username and a password."
+#define D_WEB_KS_MSG_REGISTERED     "Account created and saved."
+#define D_WEB_KS_MSG_SAVED          "Sync settings saved."
+#define D_WEB_KS_MSG_DOC_CLEARED    "Sync identifier removed."
+#define D_WEB_KS_MSG_DOC_SAVED      "Sync identifier saved."
+#define D_WEB_KS_ERR_BAD_HASH       "Sync identifier must be 32 hexadecimal characters."
+#define D_WEB_KS_ERR_BAD_MAP        "Spine map rejected."
+
+// ----------------------------------------------------------------------------
+//  Sync screen (ui/screens/sync_screen.cpp)
+// ----------------------------------------------------------------------------
+#define D_SYNC_HEADER               "Sync"
+#define D_SYNC_NOT_CONFIGURED_L1    "Sync is not set up."
+#define D_SYNC_NOT_CONFIGURED_L2    "Set it up in the web UI."
+#define D_SYNC_NO_DOC_L1            "No sync id for this book."
+#define D_SYNC_NO_DOC_L2            "Re-upload it via the web UI."
+#define D_SYNC_NO_CREDS             "No Wi-Fi credentials saved."
+#define D_SYNC_CONNECTING           "Connecting to Wi-Fi..."
+#define D_SYNC_CONN_FAILED          "Wi-Fi connection failed."
+#define D_SYNC_WORKING              "Syncing..."
+#define D_SYNC_UP_TO_DATE           "In sync"
+#define D_SYNC_HERE_FMT             "Here: %d%%"
+#define D_SYNC_OTHER_FMT            "Other: %d%%"
+#define D_SYNC_ACTION_JUMP          "Jump to other device"
+#define D_SYNC_ACTION_KEEP          "Keep this position"
+#define D_SYNC_JUMPED               "Jumped"
+#define D_SYNC_JUMPED_SHORT_L1     "Could not reach that page."
+#define D_SYNC_JUMPED_SHORT_L2     "Other device unchanged."
+#define D_SYNC_FAILED               "Sync failed"
+#define D_SYNC_ERR_AUTH             "Check user / password"
+#define D_SYNC_ERR_SERVER           "Server error"
+#define D_SYNC_HINT_CHOOSE          "1x move  2x pick  3x back"
+#define D_SYNC_HINT_EXIT            "any press: back"
+#define D_MENU_READER_SYNC          "Sync progress"
+
+// ----------------------------------------------------------------------------
+//  Saved Wi-Fi networks (web/wifi.cpp)
+//
+//  D_WEB_WIFI_CONFIRM_FORGET is inlined into a JS confirm() and the rest land
+//  in single-quoted HTML attributes, so none of these may contain a single
+//  quote or a backslash.
+// ----------------------------------------------------------------------------
+#define D_WEB_WIFI_TITLE            "Wi-Fi networks"
+#define D_WEB_WIFI_SUBTITLE         "Networks the device joins for uploads, firmware updates and reading sync."
+#define D_WEB_WIFI_SAVED_HEADING    "Saved networks"
+#define D_WEB_WIFI_SAVED_INTRO      "The device tries the one it used last, then scans and joins the strongest saved network in range. The order below is not a priority order."
+#define D_WEB_WIFI_NONE             "No networks saved yet."
+#define D_WEB_WIFI_SECURED          "Password saved"
+#define D_WEB_WIFI_OPEN             "Open network"
+#define D_WEB_WIFI_LAST_USED        "used last"
+#define D_WEB_WIFI_FORGET_BUTTON    "Forget"
+#define D_WEB_WIFI_CONFIRM_FORGET   "Forget this network?"
+#define D_WEB_WIFI_ADD_HEADING      "Add a network"
+#define D_WEB_WIFI_ADD_INTRO        "Type the network name exactly as it appears, including capitals. Adding a name that is already saved replaces its password."
+#define D_WEB_WIFI_SSID_LABEL       "Network name"
+#define D_WEB_WIFI_PASS_LABEL       "Password"
+#define D_WEB_WIFI_PASS_HINT        "Leave blank for an open network. Saved passwords are never shown back on this page."
+#define D_WEB_WIFI_ADD_BUTTON       "Add network"
+#define D_WEB_WIFI_CAPACITY_HINT    "Up to 5 networks. Adding a sixth replaces the oldest."
+#define D_WEB_WIFI_MSG_ADDED        "Network added."
+#define D_WEB_WIFI_MSG_ADDED_EVICTED "Network added. The oldest saved network was removed to make room."
+#define D_WEB_WIFI_MSG_UPDATED      "Password updated for that network."
+#define D_WEB_WIFI_MSG_FORGOTTEN    "Network forgotten."
+#define D_WEB_WIFI_ERR_NO_SSID      "Enter a network name."
+#define D_WEB_WIFI_ERR_SSID_LONG    "That network name is too long."
+#define D_WEB_WIFI_ERR_PASS_LONG    "That password is too long."
 
 #endif  // PALA_LANG_EN_H

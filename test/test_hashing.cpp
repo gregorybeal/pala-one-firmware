@@ -27,3 +27,9 @@ TEST_CASE("prefKeyForBook is deterministic and well-formed") {
 TEST_CASE("bmKeyFor appends _bm suffix") {
   CHECK_EQ(bmKeyFor("b_12345678"), String("b_12345678_bm"));
 }
+
+TEST_CASE("ksKeyFor appends _ks suffix and stays inside the NVS key limit") {
+  CHECK_EQ(ksKeyFor("b_12345678"), String("b_12345678_ks"));
+  // NVS keys are capped at 15 characters; "b_" + 8 hex + "_ks" is 13.
+  CHECK(ksKeyFor(prefKeyForBook("/books/a.txt")).length() <= 15u);
+}

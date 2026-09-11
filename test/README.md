@@ -70,6 +70,19 @@ test/build/Release/host_tests.exe     # Windows / MSVC
 test/build/host_tests                 # Linux / macOS / MinGW
 ```
 
+### The two binaries
+
+`ctest` runs both:
+
+- **`host_tests`** — the pure modules and the KV-store-backed ones.
+- **`host_fs_tests`** — [`storage/sync_map.cpp`](../Pala_One_2_1/src/storage/sync_map.cpp),
+  which reads a real file. It is a separate binary because it needs
+  [`hostfs/`](hostfs) on the include path *ahead of* the firmware tree: that
+  directory shadows `src/state.h` and `src/config.h` with stubs providing a
+  `File` / `FS` over ordinary files, so the module does genuine seeks and
+  short reads rather than talking to a mock. Shadowing those headers is
+  incompatible with `host_tests`, which wants the real ones.
+
 ## What's covered
 
 | Test file | Module under test |
@@ -83,6 +96,9 @@ test/build/host_tests                 # Linux / macOS / MinGW
 | [`test_list_codec.cpp`](test_list_codec.cpp) | todo-list byte-blob encode/decode |
 | [`test_bookmarks_store.cpp`](test_bookmarks_store.cpp) | `loadBookmarks` / `saveBookmarks` against `MapKvStore` |
 | [`test_list_store.cpp`](test_list_store.cpp) | `loadList` / `saveList` against `MapKvStore` |
+| [`test_xpointer.cpp`](test_xpointer.cpp) | crengine / KOReader XPointer parse + compose |
+| [`test_sync_map_codec.cpp`](test_sync_map_codec.cpp) | spine-map file format: header, section offsets, records |
+| [`test_sync_map.cpp`](test_sync_map.cpp) | XPointer ⇄ byte offset against a real map file (`host_fs_tests`) |
 
 ## Adding a new test
 
@@ -91,6 +107,10 @@ test/build/host_tests                 # Linux / macOS / MinGW
    [`CMakeLists.txt`](CMakeLists.txt) under `SUT_SRC` / `TEST_SRC`.
 3. Use `TEST_CASE("name") { ... }` with `CHECK(expr)` / `CHECK_EQ(a, b)` /
    `REQUIRE(expr)` from [`test_framework.h`](test_framework.h).
+
+If the module touches the filesystem, add it to the `host_fs_tests` target
+instead and let it open real files under a `mkdtemp` root — see
+[`test_sync_map.cpp`](test_sync_map.cpp).
 
 The pure modules compile here because they include
 [`src/pure/arduino_compat.h`](../src/pure/arduino_compat.h) — which provides

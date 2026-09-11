@@ -5,11 +5,13 @@
 #include "src/web/chrome.h"
 #include "src/web/files.h"
 #include "src/web/find.h"
+#include "src/web/kosync.h"
 #include "src/web/list.h"
 #include "src/web/reset.h"
 #include "src/web/screensavers.h"
 #include "src/web/settings.h"
 #include "src/web/upload.h"
+#include "src/web/wifi.h"
 
 // ============================================================================
 //  Web routes — split per topic across the files in this directory. This
@@ -23,6 +25,8 @@ void registerWebRoutes() {
   registerBookmarksRoutes();   // /bookmarks, /viewbm, /delbm, /exportbm
   registerListRoutes();        // /list, /list-clear-done
   registerSettingsRoutes();    // /settings, /del-sleep
+  registerKosyncRoutes();      // /kosync, /kosync-doc, /kosync-book
+  registerWifiRoutes();        // /wifi, /wifi-forget
   registerFindRoutes();        // /read, /readbook-text, /jumpoffset
   registerScreensaverRoutes(); // /screensavers and subroutes
   registerUploadRoutes();      // /upload, /upload-sleep (legacy)

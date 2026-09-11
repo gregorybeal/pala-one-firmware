@@ -77,7 +77,7 @@ void begin() {
       "Pala One",
       FW_VERSION,
       "Pala One",
-      "https://paullagier.github.io/pala-one-firmware/connected.html");
+      PALA_SITE_BASE_URL "connected.html");
 
   // The library handles WiFi.begin() itself; we only persist creds once the
   // association succeeds. If the association fails the library reports the
@@ -90,7 +90,7 @@ void begin() {
   // enough to defer; fix would be `setCustomConnectWiFi(...)` to bypass the
   // lib's connect while a session is up and just save creds.
   s_state.lib.onImprovConnected([](const char* ssid, const char* password) {
-    WifiCreds::save(ssid, password);
+    WifiCreds::add(ssid, password);   // upsert — keeps the other saved networks
     if (!s_state.uploadSession) {
       // We brought Wi-Fi up just to verify creds — schedule teardown after
       // the library finishes sending its "Provisioned" reply.

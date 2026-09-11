@@ -3,6 +3,7 @@
 #include "src/state.h"            // server, FS
 #include "src/storage/fs_util.h"  // fs*BytesSafe
 #include "src/storage/library.h"  // g_library
+#include "src/web/epub_js.h"      // kEpubJs, served as /epub.js
 
 // ============================================================================
 //  Stylesheet — served as /style.css. Browsers cache for an hour, so visiting
@@ -39,6 +40,8 @@ static const char kStyleCss[] PROGMEM =
   ".top a:hover,.link:hover{text-decoration:underline}"
   ".top-side{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;justify-content:flex-end}"
   ".muted{color:var(--muted);font-size:13px}"
+  // Upload status line — neutral while working, --danger on failure.
+  ".upload-error{color:var(--danger)}"
   ".card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px 15px;margin:0 0 14px;box-shadow:0 1px 0 rgba(0,0,0,.03)}"
   "html[data-theme=dark] .card{box-shadow:0 1px 0 rgba(255,255,255,.04)}"
   ".grid{display:grid;gap:12px}"
@@ -112,8 +115,16 @@ static void handleStyleCss() {
   server.send_P(200, "text/css; charset=utf-8", kStyleCss);
 }
 
+// Browser-side EPUB converter. Cached like the stylesheet — it's ~11 KB and
+// only the home page pulls it in.
+static void handleEpubJs() {
+  server.sendHeader("Cache-Control", "public, max-age=3600");
+  server.send_P(200, "application/javascript; charset=utf-8", kEpubJs);
+}
+
 void registerChromeRoutes() {
   server.on("/style.css", HTTP_GET, handleStyleCss);
+  server.on("/epub.js",   HTTP_GET, handleEpubJs);
 }
 
 // ============================================================================

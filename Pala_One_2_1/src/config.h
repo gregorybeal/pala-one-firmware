@@ -48,6 +48,22 @@
   #define LIB_HEADER_TITLE "Pala One"
 #endif
 
+// Where the device looks for its own published site: OTA manifests and
+// firmware images under <base><channel>/, and the Improv post-provisioning
+// landing page at <base>connected.html. Must end with a slash.
+//
+// Overridable at build time so a fork can serve its own builds without
+// editing tracked source (which would conflict on every merge from
+// upstream). PlatformIO wants the quotes escaped into the flag:
+//
+//   build_flags = -D PALA_SITE_BASE_URL='"https://you.github.io/pala-one-firmware/"'
+//
+// The fork also needs GitHub Pages enabled on its gh-pages branch and a run
+// of the deploy workflow — see README "Pointing OTA at your own fork".
+#ifndef PALA_SITE_BASE_URL
+#define PALA_SITE_BASE_URL "https://paullagier.github.io/pala-one-firmware/"
+#endif
+
 // Language selection (LANG_EN / LANG_ES_LA) and the LANG_EN fallback live in
 // src/lang/lang.h itself — included at the end of this header so every TU
 // that pulls in config.h transitively sees the D_* macros.
@@ -56,6 +72,15 @@ static const int SCREEN_W = 250;
 static const int SCREEN_H = 122;
 
 static const uint8_t MAX_BOOKMARKS = 12;
+
+// Saved Wi-Fi networks. The device tries the last one that worked, then scans
+// and picks the strongest saved network actually on the air — so this is a
+// capacity limit, not a priority list. SSID/passphrase caps are the 802.11 and
+// WPA2 maxima; the encoded blob is length-prefixed (pure/wifi_list_codec.h) so
+// a short SSID costs a short entry.
+static const uint8_t MAX_WIFI_NETWORKS = 5;
+static const int     MAX_WIFI_SSID     = 32;
+static const int     MAX_WIFI_PASS     = 63;
 static const int MAX_BOOKS = 80;
 static const int MAX_FOLDERS = 32;
 static const int MAX_FOLDER_PATH = 63;  // chars, excluding null

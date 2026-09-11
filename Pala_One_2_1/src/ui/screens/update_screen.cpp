@@ -13,7 +13,6 @@
 #include "src/ui/screens/library_screen.h"
 #include "src/ui/widgets.h"
 
-static constexpr uint32_t    kStaTimeoutMs  = 15000;
 static constexpr const char* kKeyOtaChannel = "cfg_ota_channel";
 
 // Static progress callback — called from OTA::download() during the blocking
@@ -86,7 +85,7 @@ void UpdateScreen::onIdleTick() {
     return;
   }
   if (r == WifiStaResult::Failed ||
-      (uint32_t)(millis() - staStartMs_) > kStaTimeoutMs) {
+      (uint32_t)(millis() - staStartMs_) > wifiStaBudgetMs()) {
     wifiEnd();
     WifiProvisioning::notifyUploadSession(false);
     wifiStarted_ = false;

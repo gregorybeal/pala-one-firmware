@@ -4,6 +4,7 @@
 #include "src/storage/kv_store.h"
 #include "src/pure/bookmarks_codec.h"
 #include "src/pure/hashing.h"
+#include "src/pure/kosync_codec.h"   // KOSYNC_DOC_BYTES
 
 // All per-book NVS state — explicit bookmarks AND implicit saved-page
 // progress — lives behind the same hash-keyed scheme (`<hash>_p`,
@@ -34,11 +35,25 @@ void     saveSavedPage(KeyValueStore& kv, const String& bookKey, int pageIndex);
 uint32_t loadSavedOffset(KeyValueStore& kv, const String& bookKey);
 void     saveSavedOffset(KeyValueStore& kv, const String& bookKey, uint32_t byteOffset);
 
-// Remove all metadata for one book (progress + bookmarks). Returns true if
-// anything was removed.
+// KOReader sync document id — the 16 raw bytes of the partial MD5 of the
+// file as the user uploaded it. Computed browser-side (see web/epub_js.h:
+// the device rewrites the text while storing it, so an on-device hash would
+// never match the same book opened in KOReader) and posted to /kosync-doc.
+//
+// `loadKosyncDoc` zero-fills `out` when nothing is stored, which is exactly
+// the "unset" sentinel `kosyncDocIsSet()` tests for — so callers can ignore
+// the return value and just check the digest.
+bool loadKosyncDoc(KeyValueStore& kv, const String& bookKey,
+                   uint8_t out[KOSYNC_DOC_BYTES]);
+void saveKosyncDoc(KeyValueStore& kv, const String& bookKey,
+                   const uint8_t doc[KOSYNC_DOC_BYTES]);
+void clearKosyncDoc(KeyValueStore& kv, const String& bookKey);
+
+// Remove all metadata for one book (progress + bookmarks + sync doc id).
+// Returns true if anything was removed.
 bool clearBookMetadata(KeyValueStore& kv, const String& bookKey);
 
-// Move metadata (progress + bookmarks) from oldKey to newKey.
+// Move metadata (progress + bookmarks + sync doc id) from oldKey to newKey.
 void renameBookMetadata(KeyValueStore& kv, const String& oldKey, const String& newKey);
 
 #ifdef ARDUINO

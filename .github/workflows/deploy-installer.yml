@@ -96,29 +96,44 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "Publishing channel=$CHANNEL version=$VERSION"
 
+      # Flags shared by all four builds, composed once into the environment.
+      #
+      #   DEBUG_BUILD=0   on stable, so the release UI carries no git hash.
+      #                   Dev keeps the default 1 from config.h.
+      #   PALA_SITE_BASE_URL  only when the repository sets a SITE_BASE_URL
+      #                   variable. That is how a fork serves its own OTA
+      #                   channel without editing tracked source, which would
+      #                   conflict on every merge from upstream. Unset here,
+      #                   so upstream builds keep the default in config.h.
+      - name: Compose build flags
+        env:
+          SITE_BASE_URL: ${{ vars.SITE_BASE_URL }}
+        run: |
+          set -euo pipefail
+          FLAGS=""
+          if [[ "${{ steps.meta.outputs.channel }}" == "stable" ]]; then
+            FLAGS="-DDEBUG_BUILD=0"
+          fi
+          if [[ -n "$SITE_BASE_URL" ]]; then
+            # The value has to reach the compiler as a string literal, so the
+            # quotes are part of the flag.
+            FLAGS="$FLAGS -D PALA_SITE_BASE_URL='\"$SITE_BASE_URL\"'"
+          fi
+          echo "PLATFORMIO_BUILD_FLAGS=$FLAGS" >> "$GITHUB_ENV"
+          echo "Build flags: ${FLAGS:-(none)}"
+
       # Four leaf envs: (V1.1, V1.2) x (English, Spanish-LA). One language
       # per binary by design — see README "Language".
-      #
-      # Stable channel always builds clean (no git-hash UI). Dev keeps
-      # DEBUG_BUILD=1 from config.h so the hash stays visible.
       - name: Build firmware (V1.2 EN)
-        env:
-          PLATFORMIO_BUILD_FLAGS: ${{ steps.meta.outputs.channel == 'stable' && '-DDEBUG_BUILD=0' || '' }}
         run: pio run -e wireless-paper-v1_2-en
 
       - name: Build firmware (V1.2 ES)
-        env:
-          PLATFORMIO_BUILD_FLAGS: ${{ steps.meta.outputs.channel == 'stable' && '-DDEBUG_BUILD=0' || '' }}
         run: pio run -e wireless-paper-v1_2-es
 
       - name: Build firmware (V1.1 EN)
-        env:
-          PLATFORMIO_BUILD_FLAGS: ${{ steps.meta.outputs.channel == 'stable' && '-DDEBUG_BUILD=0' || '' }}
         run: pio run -e wireless-paper-v1_1-en
 
       - name: Build firmware (V1.1 ES)
-        env:
-          PLATFORMIO_BUILD_FLAGS: ${{ steps.meta.outputs.channel == 'stable' && '-DDEBUG_BUILD=0' || '' }}
         run: pio run -e wireless-paper-v1_1-es
 
       - name: Assemble site

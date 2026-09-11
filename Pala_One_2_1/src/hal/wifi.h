@@ -8,6 +8,19 @@
 // main loop stays alive throughout (button events, Improv polling, screen
 // redraws keep working through a slow STA association).
 //
+// Several networks can be stored (storage/wifi_creds.h). Choosing between
+// them lives entirely inside wifiStaBegin/wifiStaPoll, so callers still see
+// exactly three outcomes: `Connecting` for the whole attempt sequence, and
+// `Failed` only once every candidate is exhausted. The sequence is:
+//
+//   1. the last network that actually connected, if it is still saved —
+//      no scan, so the common case (you are at home) is immediate
+//   2. otherwise an async scan, then the saved networks that are actually
+//      on the air, strongest first
+//
+// A scan that finds none of your networks fails fast, which is what keeps
+// "I am somewhere new" from turning into a string of association timeouts.
+//
 // Typical sequence:
 //
 //   if (wifiStaBegin()) {
@@ -49,13 +62,27 @@ bool          wifiStaBegin();
 
 // Poll the in-flight STA attempt. On Connected, `out` is filled with the
 // session and the caller takes ownership. On Failed, the caller should
-// call wifiStaAbort() and fall back to AP. The caller decides when to
-// give up on Connecting (typical: 5s timeout).
+// call wifiStaAbort() and fall back to AP. Per-candidate timing is handled
+// internally; a caller's own timeout is a safety net and should come from
+// wifiStaBudgetMs().
 WifiStaResult wifiStaPoll(WifiSession& out);
 
-// Tear down an in-flight STA attempt. Cheaper than wifiEnd() because no
-// full session was ever brought up; leaves the CPU clock alone since the
-// caller typically calls wifiBeginAccessPoint() next.
+// SSID currently being attempted, or "" when nothing is in flight. For the
+// connecting splash — with several saved networks, "Connecting..." alone
+// doesn't tell the user which one, or that it has moved on to another.
+String wifiStaCurrentSsid();
+
+// Upper bound on how long the whole attempt sequence can take, given how
+// many networks are stored. Callers use it to size their safety timeout
+// instead of a fixed constant that no longer fits a multi-network sequence.
+// Normal completion is far quicker — this only bounds the pathological case
+// where several saved networks are present and all reject us.
+uint32_t wifiStaBudgetMs();
+
+// Tear down an in-flight STA attempt, including any scan still running.
+// Cheaper than wifiEnd() because no full session was ever brought up; leaves
+// the CPU clock alone since the caller typically calls
+// wifiBeginAccessPoint() next.
 void          wifiStaAbort();
 
 // Bring up SoftAP. Always succeeds. Bumps CPU to 240 MHz if not already.
