@@ -21,12 +21,12 @@ https://ko-fi.com/s/e14ed892ea
 
 ## Install (no toolchain needed)
 
-[Web Installer](https://paullagier.github.io/pala-one-firmware/)
+[Web Installer](https://gregorybeal.github.io/pala-one-firmware/)
 
 The easiest way to flash a board is via the web installer. Plug your Heltec Wireless Paper into a desktop computer running Chrome, Edge, or Opera, then open the installer page and pick a channel:
 
-- **Stable** ([`/stable/`](https://paullagier.github.io/pala-one-firmware/stable/)) — latest tagged release (`vX.Y.Z`). Use this unless you have a reason not to.
-- **Development** ([`/dev/`](https://paullagier.github.io/pala-one-firmware/dev/)) — latest build from `dev`; new features, may break.
+- **Stable** ([`/stable/`](https://gregorybeal.github.io/pala-one-firmware/stable/)) — latest tagged release (`vX.Y.Z`). Use this unless you have a reason not to.
+- **Development** ([`/dev/`](https://gregorybeal.github.io/pala-one-firmware/dev/)) — latest build from `dev`; new features, may break.
 
 Each channel page lists both display revisions (V1.1 / V1.2) and both languages (English / Spanish-LA) — four install buttons total. Pick the one that matches your board + language and click **Install**. The installer keeps existing reading progress, bookmarks, and uploaded books across re-flashes.
 
@@ -42,7 +42,7 @@ Pick your board's revision in the build step below — either by uncommenting th
 
 ## Wi-Fi provisioning (Improv)
 
-Besides the SoftAP captive portal, the firmware supports **Improv Serial** Wi-Fi provisioning ([improv-wifi.com](https://www.improv-wifi.com)) over the USB-CDC port, using the [`jnthas/Improv-WiFi-Library`](https://github.com/jnthas/Improv-WiFi-Library). When the board is plugged into a computer, a browser can hand it Wi-Fi credentials directly — the [web installer](https://paullagier.github.io/pala-one-firmware/) does this right after flashing and then redirects to `connected.html`.
+Besides the SoftAP captive portal, the firmware supports **Improv Serial** Wi-Fi provisioning ([improv-wifi.com](https://www.improv-wifi.com)) over the USB-CDC port, using the [`jnthas/Improv-WiFi-Library`](https://github.com/jnthas/Improv-WiFi-Library). When the board is plugged into a computer, a browser can hand it Wi-Fi credentials directly — the [web installer](https://gregorybeal.github.io/pala-one-firmware/) does this right after flashing and then redirects to `connected.html`.
 
 Saved credentials let the device join your network in **Station mode** the next time it enters the web UI / upload mode; if none are saved (or the join fails) it falls back to the open SoftAP at `192.168.4.1`.
 
@@ -86,7 +86,7 @@ Once the device has Wi-Fi credentials stored (see [Wi-Fi provisioning](#wi-fi-pr
 ### Requirements
 
 - Wi-Fi credentials must be provisioned first (see below). If none are stored the screen shows *"No Wi-Fi credentials — setup via web installer"*.
-- The device must be able to reach the update host over HTTPS (`paullagier.github.io` by default). A local network without internet access will be reported as *"Cannot reach update server"*.
+- The device must be able to reach the update host over HTTPS (`gregorybeal.github.io` by default). A local network without internet access will be reported as *"Cannot reach update server"*.
 
 ### Pointing OTA at your own fork
 
@@ -379,7 +379,7 @@ Arduino IDE / host-test builds skip the script and fall back to `"dev"` and `"un
 
 ### Web Installer site (channels & CI)
 
-The [web installer](https://paullagier.github.io/pala-one-firmware/) is published to the `gh-pages` branch by [`.github/workflows/deploy-installer.yml`](.github/workflows/deploy-installer.yml). Two channels live side-by-side and never overwrite each other:
+The [web installer](https://gregorybeal.github.io/pala-one-firmware/) is published to the `gh-pages` branch by [`.github/workflows/deploy-installer.yml`](.github/workflows/deploy-installer.yml). Two channels live side-by-side and never overwrite each other:
 
 | Trigger                       | Channel  | URL path     | `DEBUG_BUILD` | Manifest version |
 |-------------------------------|----------|--------------|---------------|------------------|
