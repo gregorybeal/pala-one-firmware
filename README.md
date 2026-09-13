@@ -212,6 +212,40 @@ proportional: expect to land within a page or two, and biased late, because
 KOReader's percentage counts front matter and other content the flattener drops.
 Re-upload a book to give it a map.
 
+### Chapter numbering (Sync → Position matching)
+
+An XPointer names its spine document by number: `DocFragment[11]`. crengine
+counts those over the book's spine, but whether it counts entries that carry no
+text — a `linear="no"` cover, an image-only title page — differs between builds
+and cannot be determined from the device. Guess wrong and a pulled position
+lands a **fixed number of chapters ahead** of where you were, one chapter per
+uncounted entry before it.
+
+The map therefore stores both numberings, and **Sync → Position matching** picks
+between them:
+
+- **Auto** (default) resolves the pointer both ways and keeps whichever lands
+  closer to the percentage the server sent alongside it.
+- **Count every spine entry** and **Count only entries with text** pin one
+  numbering and use it alone.
+
+Auto is right on most books but not all: KOReader's percentage counts content
+the flattener drops, so it always reads a little high, and where that bias
+exceeds half the distance between the two candidates the wrong one scores
+better. Front-matter-heavy books are where it shows.
+
+Which numbering is correct is a property of your KOReader build rather than of
+any one book, so it is the same answer every time. If a sync lands you in the
+wrong chapter, try each of the other two settings once and leave it there.
+Books with no spine map sync by percentage and ignore the setting entirely.
+
+**Sync → Last sync** shows what the previous sync actually received — the raw
+position string from the server, the percentage that came with it, where the
+device decided that was, and which of the two numberings it used (or that it
+fell back to percentage, and why). Read it after a sync that lands wrong: it
+says whether the numbering setting is the thing to change, or whether the book
+simply has no spine map and needs re-uploading.
+
 ### Known limitations
 
 - **The percentage fallback lands late.** Anything KOReader renders but the
@@ -226,6 +260,9 @@ Re-upload a book to give it a map.
   falls back to the fragment start; a resolved position that lands more than
   25 % away from the percentage the server sent alongside it is rejected
   outright rather than trusted.
+- **Which spine numbering KOReader used is a setting, not a deduction.** Auto
+  infers it per sync from a percentage that is biased late; see *Chapter
+  numbering* above for when that misfires and how to pin it.
 - **There is no clock on the device** (no NTP, no RTC date), so "which side is
   newer" cannot be decided automatically. That is why a difference always
   prompts rather than resolving itself.

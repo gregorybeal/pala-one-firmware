@@ -103,6 +103,46 @@ float percentageForOffset(uint32_t offset, uint32_t fileSize);
 // to a real page boundary via findPageForOffset().
 uint32_t offsetForPercentage(float pct, uint32_t fileSize);
 
+// ----------------------------------------------------------------------------
+//  Spine numbering
+//
+//  An XPointer names its spine document as `DocFragment[N]`. crengine numbers
+//  those over the spine, but whether it counts itemrefs that carry no text (a
+//  linear="no" cover, an image-only title page) varies between builds, so the
+//  spine map stores both numberings and one of them has to be chosen. See
+//  storage/sync_map.h for the two, and the README for the user-facing setting.
+// ----------------------------------------------------------------------------
+
+enum KosyncFragmentNumbering {
+  KOSYNC_FRAG_AUTO   = 0,   // try both, let kosyncChooseFragment decide
+  KOSYNC_FRAG_OPF    = 1,   // N counts every spine itemref
+  KOSYNC_FRAG_LINEAR = 2,   // N counts only the itemrefs that carry text
+};
+
+// At most both numberings are ever in play.
+static const int KOSYNC_MAX_FRAGMENT_CANDIDATES = 2;
+
+// Anything unrecognized reads as Auto. The value arrives off the web form or
+// out of NVS, either of which can hold something this build does not know.
+KosyncFragmentNumbering kosyncFragmentNumberingFromInt(int raw);
+
+// Which numberings `mode` should resolve, in the order to try them. Writes to
+// `out` and returns the count (1 when pinned, 2 on Auto).
+int kosyncNumberingsToTry(KosyncFragmentNumbering mode,
+                          KosyncFragmentNumbering out[KOSYNC_MAX_FRAGMENT_CANDIDATES]);
+
+// Choose between resolved candidates by closeness to the percentage the
+// server sent, rejecting the lot when even the best sits further than
+// KOSYNC_XPOINTER_MAX_DELTA away. `candidatePcts` holds where each candidate
+// landed, as a fraction of our own text. Returns the winning index, or -1.
+//
+// Worth being clear about what this referee is, because it is only as good as
+// its yardstick: `remotePct` counts content the flattener drops, so it reads
+// high, and a candidate landing too far into the book can therefore score
+// better than the correct one. With one candidate — the numbering pinned —
+// the comparison degenerates to the sanity check alone, which is the point.
+int kosyncChooseFragment(const float* candidatePcts, int count, float remotePct);
+
 enum SyncDecision {
   SYNC_IDENTICAL,      // within KOSYNC_DEADBAND — nothing to ask the user
   SYNC_REMOTE_AHEAD,   // the other device is further into the book

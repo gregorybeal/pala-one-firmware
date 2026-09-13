@@ -262,6 +262,50 @@ uint32_t offsetForPercentage(float pct, uint32_t fileSize) {
   return off;
 }
 
+// ----------------------------------------------------------------------------
+//  Spine numbering
+// ----------------------------------------------------------------------------
+KosyncFragmentNumbering kosyncFragmentNumberingFromInt(int raw) {
+  switch (raw) {
+    case KOSYNC_FRAG_OPF:    return KOSYNC_FRAG_OPF;
+    case KOSYNC_FRAG_LINEAR: return KOSYNC_FRAG_LINEAR;
+    default:                 return KOSYNC_FRAG_AUTO;
+  }
+}
+
+int kosyncNumberingsToTry(KosyncFragmentNumbering mode,
+                          KosyncFragmentNumbering out[KOSYNC_MAX_FRAGMENT_CANDIDATES]) {
+  if (mode == KOSYNC_FRAG_OPF || mode == KOSYNC_FRAG_LINEAR) {
+    out[0] = mode;
+    return 1;
+  }
+  // Auto. OPF first so it wins an exact tie — with nothing to separate them,
+  // the numbering that counts every itemref is the more literal reading of
+  // what crengine builds.
+  out[0] = KOSYNC_FRAG_OPF;
+  out[1] = KOSYNC_FRAG_LINEAR;
+  return 2;
+}
+
+int kosyncChooseFragment(const float* candidatePcts, int count, float remotePct) {
+  if (!candidatePcts || count <= 0) return -1;
+
+  int   best      = -1;
+  float bestDelta = 0.0f;
+
+  for (int i = 0; i < count; i++) {
+    float delta = candidatePcts[i] - remotePct;
+    if (delta < 0.0f) delta = -delta;
+    if (best < 0 || delta < bestDelta) {
+      best      = i;
+      bestDelta = delta;
+    }
+  }
+
+  if (bestDelta > KOSYNC_XPOINTER_MAX_DELTA) return -1;
+  return best;
+}
+
 SyncDecision decideSync(float localPct, float remotePct) {
   float diff = remotePct - localPct;
   if (diff < 0.0f) diff = -diff;

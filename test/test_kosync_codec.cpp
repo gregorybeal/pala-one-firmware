@@ -257,3 +257,115 @@ TEST_CASE("decideSync handles the ends of the book") {
   CHECK_EQ((int)decideSync(0.0f, 1.0f), (int)SYNC_REMOTE_AHEAD);
   CHECK_EQ((int)decideSync(1.0f, 0.0f), (int)SYNC_REMOTE_BEHIND);
 }
+
+// ----------------------------------------------------------------------------
+//  Spine numbering
+// ----------------------------------------------------------------------------
+TEST_CASE("kosyncFragmentNumberingFromInt accepts the three known values") {
+  CHECK_EQ((int)kosyncFragmentNumberingFromInt(0), (int)KOSYNC_FRAG_AUTO);
+  CHECK_EQ((int)kosyncFragmentNumberingFromInt(1), (int)KOSYNC_FRAG_OPF);
+  CHECK_EQ((int)kosyncFragmentNumberingFromInt(2), (int)KOSYNC_FRAG_LINEAR);
+}
+
+TEST_CASE("kosyncFragmentNumberingFromInt falls back to Auto") {
+  // The value comes off the web form or out of NVS, so it can be anything —
+  // including something a future build wrote and this one does not know.
+  const int junk[] = {-1, 3, 99, 32767, -32768};
+  for (int raw : junk) {
+    CHECK_EQ((int)kosyncFragmentNumberingFromInt(raw), (int)KOSYNC_FRAG_AUTO);
+  }
+}
+
+TEST_CASE("a pinned numbering is the only one tried") {
+  KosyncFragmentNumbering got[KOSYNC_MAX_FRAGMENT_CANDIDATES];
+
+  CHECK_EQ(kosyncNumberingsToTry(KOSYNC_FRAG_OPF, got), 1);
+  CHECK_EQ((int)got[0], (int)KOSYNC_FRAG_OPF);
+
+  CHECK_EQ(kosyncNumberingsToTry(KOSYNC_FRAG_LINEAR, got), 1);
+  CHECK_EQ((int)got[0], (int)KOSYNC_FRAG_LINEAR);
+}
+
+TEST_CASE("Auto tries both numberings, OPF first") {
+  KosyncFragmentNumbering got[KOSYNC_MAX_FRAGMENT_CANDIDATES];
+  CHECK_EQ(kosyncNumberingsToTry(KOSYNC_FRAG_AUTO, got), 2);
+  CHECK_EQ((int)got[0], (int)KOSYNC_FRAG_OPF);
+  CHECK_EQ((int)got[1], (int)KOSYNC_FRAG_LINEAR);
+}
+
+TEST_CASE("kosyncChooseFragment takes the candidate nearest the percentage") {
+  const float cands[] = {0.30f, 0.50f};
+  CHECK_EQ(kosyncChooseFragment(cands, 2, 0.31f), 0);
+  CHECK_EQ(kosyncChooseFragment(cands, 2, 0.49f), 1);
+}
+
+TEST_CASE("kosyncChooseFragment prefers the first candidate on an exact tie") {
+  // Equidistant either side. OPF is passed first (kosyncNumberingsToTry), so
+  // this is the numbering that wins when nothing separates them.
+  const float cands[] = {0.30f, 0.50f};
+  CHECK_EQ(kosyncChooseFragment(cands, 2, 0.40f), 0);
+}
+
+TEST_CASE("kosyncChooseFragment rejects everything when the best is too far") {
+  // A pointer resolved into the wrong spine document lands much further out
+  // than any front-matter difference; better to fall back to the percentage
+  // than to seek somewhere unrelated.
+  const float far[] = {0.90f};
+  CHECK_EQ(kosyncChooseFragment(far, 1, 0.10f), -1);
+
+  // Just inside and just outside the threshold, from the same base.
+  const float inside[]  = {0.10f + KOSYNC_XPOINTER_MAX_DELTA * 0.5f};
+  const float outside[] = {0.10f + KOSYNC_XPOINTER_MAX_DELTA * 2.0f};
+  CHECK_EQ(kosyncChooseFragment(inside, 1, 0.10f), 0);
+  CHECK_EQ(kosyncChooseFragment(outside, 1, 0.10f), -1);
+}
+
+TEST_CASE("kosyncChooseFragment reports no candidates") {
+  const float cands[] = {0.5f};
+  CHECK_EQ(kosyncChooseFragment(cands, 0, 0.5f), -1);
+  CHECK_EQ(kosyncChooseFragment(nullptr, 2, 0.5f), -1);
+}
+
+// ----------------------------------------------------------------------------
+//  The referee's late bias — the reason the numbering can be pinned at all.
+//
+//  KOReader's percentage counts content the flattener drops (the nav
+//  document, linear="no" items, images, tables), so for the same true
+//  position it always reads higher than ours. Writing `bias` for that gap and
+//  `gap` for the distance between the two numberings' candidates, the wrong
+//  later candidate wins whenever gap < 2 * bias.
+//
+//  Numbers below: a ~30-chapter book, the reader on chapter 10 at 32 % of our
+//  flattened text. Two spine entries before it carry no text, so the losing
+//  numbering lands two chapters late at 38 %. KOReader reports 36 %.
+// ----------------------------------------------------------------------------
+TEST_CASE("Auto can prefer the wrong numbering on a front-matter-heavy book") {
+  const float correct = 0.32f;   // chapter 10, where the reader actually is
+  const float late    = 0.38f;   // chapter 12, the other numbering
+  const float remote  = 0.36f;   // what KOReader reports for chapter 10
+
+  const float both[] = {correct, late};
+  // gap = 0.06, bias = 0.04, and 0.06 < 0.08 — so the late candidate wins.
+  CHECK_EQ(kosyncChooseFragment(both, 2, remote), 1);
+
+  // Well inside the sanity threshold, so nothing rejects it: the jump is
+  // simply wrong, silently. This is the reported failure.
+  CHECK((late - remote) < KOSYNC_XPOINTER_MAX_DELTA);
+}
+
+TEST_CASE("pinning the numbering keeps the correct candidate") {
+  const float correct = 0.32f;
+  const float remote  = 0.36f;
+
+  // With the numbering pinned, the losing candidate is never resolved and
+  // never offered, so the same biased percentage cannot pull the jump away.
+  const float only[] = {correct};
+  CHECK_EQ(kosyncChooseFragment(only, 1, remote), 0);
+}
+
+TEST_CASE("Auto still picks correctly when front matter is slight") {
+  // Same two candidates, but a book whose dropped content is negligible:
+  // KOReader's percentage now sits close to the truth and the referee works.
+  const float both[] = {0.32f, 0.38f};
+  CHECK_EQ(kosyncChooseFragment(both, 2, 0.325f), 0);
+}
