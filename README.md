@@ -246,6 +246,22 @@ fell back to percentage, and why). Read it after a sync that lands wrong: it
 says whether the numbering setting is the thing to change, or whether the book
 simply has no spine map and needs re-uploading.
 
+### Publishing a position back
+
+The percentage the device reports is a fraction of the *flattened* text, while
+KOReader's counts everything it renders — so for the same place in a book the
+device's number is the smaller one. A sync server that only accepts an
+increasing percentage will therefore refuse a push from a position that is
+genuinely further on, because the number contradicts the XPointer sent beside
+it in the same request.
+
+Where the spine map lets the two positions be compared structurally and the
+device's is the later one, it publishes just above the value the server holds
+rather than its own smaller measurement. The XPointer is unchanged and remains
+what carries the position; only the approximation beside it is adjusted, and
+only far enough to stop it saying the opposite. With no map to compare
+through, the measured value is sent as-is.
+
 ### Known limitations
 
 - **The percentage fallback lands late.** Anything KOReader renders but the

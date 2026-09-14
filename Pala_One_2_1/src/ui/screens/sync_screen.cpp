@@ -45,6 +45,27 @@ float SyncScreen::currentLocalPct() const {
                              (uint32_t)g_bookview.book.size());
 }
 
+bool SyncScreen::currentLocalOffset(uint32_t& out) const {
+  if (!g_bookview.book.isOpen()) return false;
+  const PageOffsetTable& pages = g_bookview.pages;
+  int idx = g_bookview.cursor.pageIndex;
+  if (idx < 0 || idx >= pages.count) return false;
+  out = pages.offsets[idx];
+  return true;
+}
+
+float SyncScreen::pushPercentage() const {
+  // "Ahead" has to be decided structurally or not at all: with no resolved
+  // remote offset the percentages are all we have, and adjusting one against
+  // the other would be circular.
+  bool     ahead = false;
+  uint32_t here  = 0;
+  if (remoteOffsetValid_ && currentLocalOffset(here)) {
+    ahead = here > remoteOffset_;
+  }
+  return kosyncPushPercentage(localPct_, remoteServerPct_, ahead);
+}
+
 String SyncScreen::localXPointer() const {
   if (!g_bookview.book.isOpen()) return String("");
 
@@ -87,6 +108,7 @@ void SyncScreen::onEnter() {
   message_      = "";
   localPct_     = currentLocalPct();
   remotePct_    = 0.0f;
+  remoteServerPct_ = -1.0f;
   remoteOffset_ = 0;
   remoteOffsetValid_ = false;
   jumpedShort_  = false;
@@ -172,8 +194,9 @@ void SyncScreen::runSync() {
     return;
   }
 
-  remotePct_    = remote.percentage;
-  remoteDevice_ = remote.device;
+  remotePct_       = remote.percentage;
+  remoteServerPct_ = remote.percentage;   // before the structural override
+  remoteDevice_    = remote.device;
 
   // Prefer the structural position when the book's spine map can resolve the
   // XPointer KOReader sent. This both removes the front-matter bias and
@@ -289,7 +312,7 @@ bool SyncScreen::resolveRemoteOffset(const KosyncRemote& remote) {
 }
 
 void SyncScreen::pushLocal() {
-  Kosync::CallResult r = Kosync::push(docHex_, localPct_, localXPointer());
+  Kosync::CallResult r = Kosync::push(docHex_, pushPercentage(), localXPointer());
   if (r.result == Kosync::Result::Ok) {
     phase_ = Phase::Pushed;
   } else {
@@ -345,7 +368,10 @@ void SyncScreen::applyRemotePosition() {
   // backwards. Leaving the server alone keeps the real position recoverable.
   localPct_ = currentLocalPct();
   if (!jumpedShort_) {
-    Kosync::push(docHex_, localPct_, localXPointer());
+    // Same policy as pushLocal, though it changes nothing here: having just
+    // adopted the remote position we are level with it, not ahead, so
+    // pushPercentage() returns the measured value.
+    Kosync::push(docHex_, pushPercentage(), localXPointer());
   }
 
   phase_ = Phase::Jumped;

@@ -369,3 +369,73 @@ TEST_CASE("Auto still picks correctly when front matter is slight") {
   const float both[] = {0.32f, 0.38f};
   CHECK_EQ(kosyncChooseFragment(both, 2, 0.325f), 0);
 }
+
+// ----------------------------------------------------------------------------
+//  Publishing a position
+//
+//  Our percentage counts only the flattened text; KOReader's also counts what
+//  the flattener dropped. So for the same place in a book ours reads lower,
+//  and a position genuinely ahead of the server's can carry a smaller number.
+//  A server that only accepts increasing percentages then refuses a push that
+//  the XPointer in the same request shows to be ahead.
+// ----------------------------------------------------------------------------
+TEST_CASE("kosyncPushPercentage reports the measured value when not ahead") {
+  // Behind, or level: nothing to reconcile, say what we measured.
+  CHECK_EQ(kosyncPushPercentage(0.10f, 0.22f, false), 0.10f);
+  CHECK_EQ(kosyncPushPercentage(0.30f, 0.22f, false), 0.30f);
+}
+
+TEST_CASE("kosyncPushPercentage reports the measured value with no stored position") {
+  // A negative remote percentage is "the server has nothing for this book" —
+  // the first push of a new document takes this path.
+  CHECK_EQ(kosyncPushPercentage(0.10f, -1.0f, true), 0.10f);
+}
+
+TEST_CASE("kosyncPushPercentage leaves an already-ahead number alone") {
+  // The scales happen to agree well enough here; no adjustment wanted.
+  CHECK_EQ(kosyncPushPercentage(0.30f, 0.22f, true), 0.30f);
+}
+
+TEST_CASE("kosyncPushPercentage lifts a structurally-ahead position clear") {
+  // The reported case: ahead by the pointer, behind by the number.
+  float got = kosyncPushPercentage(0.20f, 0.22f, true);
+  CHECK(got > 0.22f);
+  CHECK_EQ(got, 0.22f + KOSYNC_PUSH_NUDGE);
+
+  // Equal percentages are the same situation — BookBridge refused a push
+  // whose value matched the stored one exactly.
+  got = kosyncPushPercentage(0.22f, 0.22f, true);
+  CHECK(got > 0.22f);
+}
+
+TEST_CASE("the nudge survives the wire format") {
+  // buildProgressBody rounds to 4 decimals. A nudge that rounds away would
+  // serialize back to the value the server already holds.
+  KosyncPush p;
+  p.document   = "b8f79204a33ba509a992748c9350f535";
+  p.percentage = kosyncPushPercentage(0.20f, 0.22f, true);
+  p.progress   = "/body/DocFragment[12]/body/div/p[3].0";
+
+  String body = buildProgressBody(p);
+  CHECK(body.indexOf("\"percentage\":0.2210") >= 0);
+}
+
+TEST_CASE("the nudge stays smaller than the conflict dead band") {
+  // Otherwise the adjusted value would itself read as a conflict on the next
+  // sync, on a book whose pointer failed to resolve structurally.
+  CHECK(KOSYNC_PUSH_NUDGE < KOSYNC_DEADBAND);
+  CHECK_EQ((int)decideSync(0.22f, 0.22f + KOSYNC_PUSH_NUDGE), (int)SYNC_IDENTICAL);
+}
+
+TEST_CASE("kosyncPushPercentage cannot exceed the end of the book") {
+  // No room above a stored 1.0. The push will be refused; the pointer still
+  // carries the position.
+  CHECK_EQ(kosyncPushPercentage(0.99f, 1.0f, true), 1.0f);
+  CHECK_EQ(kosyncPushPercentage(1.0f, 1.0f, true), 1.0f);
+}
+
+TEST_CASE("kosyncPushPercentage never publishes a position backwards") {
+  // A nudge is a floor, not an override: if we measured further along than
+  // the nudged value, the measurement wins.
+  CHECK_EQ(kosyncPushPercentage(0.80f, 0.10f, true), 0.80f);
+}

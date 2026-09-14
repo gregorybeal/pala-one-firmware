@@ -59,6 +59,12 @@ private:
   float  localPct_  = 0.0f;
   float  remotePct_ = 0.0f;
 
+  // The percentage the server sent, kept as received. remotePct_ gets
+  // replaced by the structurally-resolved value when the spine map can
+  // produce one, but a push has to reason about the number the server
+  // actually holds. Negative means no stored position was returned.
+  float  remoteServerPct_ = -1.0f;
+
   // Set when the remote XPointer resolved through this book's spine map. The
   // byte offset is exact where the percentage is only proportional, so it
   // wins for both the prompt and the jump.
@@ -89,6 +95,15 @@ private:
 
   // Where the reader currently is, as a fraction of the file.
   float  currentLocalPct() const;
+
+  // ...and as a byte offset. False when there is no current page to ask
+  // about, leaving `out` untouched.
+  bool   currentLocalOffset(uint32_t& out) const;
+
+  // Percentage to publish for the current position — localPct_ except when
+  // the structural comparison says we are ahead of a server value that would
+  // make us look behind. See kosyncPushPercentage.
+  float  pushPercentage() const;
 
   // ...and as an XPointer, when the spine map can produce one. Empty string
   // otherwise, which makes the push fall back to the percentage.

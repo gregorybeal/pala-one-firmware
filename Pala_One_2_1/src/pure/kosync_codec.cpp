@@ -306,6 +306,25 @@ int kosyncChooseFragment(const float* candidatePcts, int count, float remotePct)
   return best;
 }
 
+float kosyncPushPercentage(float localPct, float remoteServerPct,
+                           bool structurallyAhead) {
+  // Without a structural comparison the percentage is the only quantity both
+  // sides share, so it has to be reported as measured.
+  if (!structurallyAhead) return localPct;
+
+  // No stored position to be ahead of.
+  if (remoteServerPct < 0.0f) return localPct;
+
+  // Already reads as ahead — nothing to reconcile.
+  if (localPct > remoteServerPct) return localPct;
+
+  float nudged = remoteServerPct + KOSYNC_PUSH_NUDGE;
+  if (nudged > 1.0f) nudged = 1.0f;
+
+  // Never move the published position backwards from what we measured.
+  return (nudged > localPct) ? nudged : localPct;
+}
+
 SyncDecision decideSync(float localPct, float remotePct) {
   float diff = remotePct - localPct;
   if (diff < 0.0f) diff = -diff;
