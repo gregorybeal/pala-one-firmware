@@ -292,6 +292,18 @@ String SyncMap::xpointerForOffset(uint32_t offset) {
     return buildXPointer(fragmentNumber, String(""), String(""), 0, 0);
   }
 
-  uint32_t within = (offset > b.textStart) ? (offset - b.textStart) : 0;
-  return buildXPointer(fragmentNumber, path, name, b.ordinal, within);
+  // Address the block, not a position inside it.
+  //
+  // The distance from the block start is a byte count into our flattened
+  // text, where crengine's `.N` is a character offset into the node it
+  // addresses. The two agree only for ASCII, and on this screen a page
+  // boundary lands mid-paragraph most of the time, so the number we would
+  // emit is routinely large — and a pointer crengine will not resolve puts
+  // the reader at the start of the book rather than slightly off.
+  //
+  // Nothing is lost by dropping it: offsetForXPointer resolves to a block's
+  // start and never reads the offset back, so this was precision we emitted
+  // for other devices to trust and never used ourselves. Worst case the far
+  // side lands at the top of the right paragraph.
+  return buildXPointer(fragmentNumber, path, name, b.ordinal, 0);
 }

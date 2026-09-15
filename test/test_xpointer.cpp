@@ -104,7 +104,9 @@ TEST_CASE("canonicalPath always writes explicit ordinals") {
 
 TEST_CASE("buildXPointer produces something parseXPointer accepts back") {
   String s = buildXPointer(11, "/body[1]/div[1]", "p", 3, 0);
-  CHECK_EQ(s, String("/body/DocFragment[11]/body[1]/div[1]/p[3].0"));
+  // Emitted in crengine's spelling; the parse side normalizes the implicit
+  // ordinals back to 1, so the round trip is unaffected.
+  CHECK_EQ(s, String("/body/DocFragment[11]/body/div/p[3].0"));
 
   XPointer xp;
   REQUIRE(parseXPointer(s, xp));
@@ -126,9 +128,56 @@ TEST_CASE("buildXPointer addresses a whole fragment when there is no leaf") {
 
 TEST_CASE("buildXPointer carries the within-block offset") {
   String s = buildXPointer(2, "/body[1]", "p", 7, 143);
-  CHECK_EQ(s, String("/body/DocFragment[2]/body[1]/p[7].143"));
+  CHECK_EQ(s, String("/body/DocFragment[2]/body/p[7].143"));
 
   XPointer xp;
   REQUIRE(parseXPointer(s, xp));
   CHECK_EQ(xp.textOffset, (uint32_t)143);
+}
+
+// ----------------------------------------------------------------------------
+//  crengine spelling
+//
+//  A pointer leaving the device is read by crengine, and one it cannot
+//  resolve puts the reader at the start of the book rather than near the
+//  right place. So the emitted form matches what crengine writes itself.
+// ----------------------------------------------------------------------------
+TEST_CASE("crengineSpelledPath drops implicit ordinals") {
+  CHECK_EQ(crengineSpelledPath(String("/body[1]/div[1]")),
+           String("/body/div"));
+  CHECK_EQ(crengineSpelledPath(String("/body[1]/div[2]/section[1]")),
+           String("/body/div[2]/section"));
+}
+
+TEST_CASE("crengineSpelledPath keeps ordinals above one") {
+  // The naive approach — deleting a '1' inside brackets — would corrupt
+  // these. Only a whole "[1]" is implicit.
+  CHECK_EQ(crengineSpelledPath(String("/body[1]/div[10]")),
+           String("/body/div[10]"));
+  CHECK_EQ(crengineSpelledPath(String("/body[11]/p[1]")),
+           String("/body[11]/p"));
+  CHECK_EQ(crengineSpelledPath(String("/div[123]")), String("/div[123]"));
+}
+
+TEST_CASE("crengineSpelledPath handles the degenerate inputs") {
+  CHECK_EQ(crengineSpelledPath(String("")), String(""));
+  CHECK_EQ(crengineSpelledPath(String("/")), String("/"));
+}
+
+TEST_CASE("buildXPointer emits crengine's spelling") {
+  // DocFragment keeps its ordinal at 1; the leaf loses it.
+  CHECK_EQ(buildXPointer(1, String("/body[1]"), String("p"), 1, 0),
+           String("/body/DocFragment[1]/body/p.0"));
+  CHECK_EQ(buildXPointer(12, String("/body[1]/div[1]"), String("p"), 3, 0),
+           String("/body/DocFragment[12]/body/div/p[3].0"));
+}
+
+TEST_CASE("an emitted pointer parses back to the same place") {
+  // The parse side normalizes an absent ordinal to 1, so dropping the
+  // implicit ones cannot change what the pointer means to us.
+  String emitted = buildXPointer(12, String("/body[1]/div[1]"), String("p"), 3, 0);
+  XPointer xp;
+  REQUIRE(parseXPointer(emitted, xp));
+  CHECK_EQ((int)xp.fragment, 12);
+  CHECK_EQ(canonicalPath(xp, xp.stepCount), String("/body[1]/div[1]/p[3]"));
 }

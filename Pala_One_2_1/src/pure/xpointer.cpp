@@ -141,6 +141,28 @@ String canonicalPath(const XPointer& xp, uint8_t count) {
   return out;
 }
 
+String crengineSpelledPath(const String& canonical) {
+  String out;
+  out.reserve(canonical.length());
+
+  unsigned i = 0;
+  while (i < canonical.length()) {
+    if (canonical[i] == '/') {
+      out += "/";
+      i++;
+      continue;
+    }
+    unsigned start = i;
+    while (i < canonical.length() && canonical[i] != '/') i++;
+    String seg = canonical.substring(start, i);
+    // Only an ordinal of exactly 1 is implicit. `[10]` and friends must stay,
+    // hence matching the whole bracket rather than scanning for a '1'.
+    if (seg.endsWith("[1]")) seg = seg.substring(0, seg.length() - 3);
+    out += seg;
+  }
+  return out;
+}
+
 String buildXPointer(uint16_t fragment, const String& parentPath,
                      const String& leafName, uint16_t leafOrdinal,
                      uint32_t textOffset) {
@@ -148,17 +170,21 @@ String buildXPointer(uint16_t fragment, const String& parentPath,
   out.reserve(parentPath.length() + leafName.length() + 48);
 
   if (fragment > 0) {
+    // DocFragment keeps its ordinal even at 1: crengine writes it there
+    // because a book with one spine document still has DocFragment[1].
     out += "/body/DocFragment[";
     out += String((unsigned long)fragment);
     out += "]";
   }
-  out += parentPath;
+  out += crengineSpelledPath(parentPath);
   if (leafName.length() > 0) {
     out += "/";
     out += leafName;
-    out += "[";
-    out += String((unsigned long)leafOrdinal);
-    out += "]";
+    if (leafOrdinal != 1) {
+      out += "[";
+      out += String((unsigned long)leafOrdinal);
+      out += "]";
+    }
   }
   out += ".";
   out += String((unsigned long)textOffset);

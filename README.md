@@ -199,7 +199,11 @@ the EPUB is uploaded, and stored beside the book as `sm_<hash>.bin`:
 - **KOReader → Pala** decodes the XPointer against the map and lands on the
   paragraph KOReader is on, not on a proportional guess.
 - **Pala → KOReader** composes an XPointer for the current page, so the reverse
-  direction is structural too.
+  direction is structural too. It addresses the paragraph rather than a
+  position inside it, and is written the way crengine spells a pointer
+  itself — a pointer the far side cannot resolve sends that reader to the
+  start of the book, which is a far worse outcome than landing at the top of
+  the right paragraph.
 
 The map is derived data, not configuration: it is generated automatically at
 upload, needs no setup, and is deleted and renamed along with the book. Novels
