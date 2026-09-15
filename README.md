@@ -294,6 +294,13 @@ Locking is a remappable button action. In the web UI under **Settings → Button
 - **Very-long press** (≥ 2 s) → Lock device
 - **Click-hold** → Menu
 
+On the library screen the hold gestures are not remappable and always lock:
+bookmarking and the reader menu mean nothing there, so both a **long press**
+and a **very-long press** engage the lock and sleep. Click-hold is excluded on
+purpose — short presses walk the list, so a click-then-hold is what a slightly
+slow final press looks like while scrolling, and locking on that would be too
+easy an accident.
+
 So by default you lock with a very-long press. Unlocking is intentionally **permissive**: *any* long, very-long, or click-hold press unlocks the device and shows an "Unlocked" toast — after a deep-sleep wake the firmware can't reconstruct a specific chord, so it accepts any hold gesture rather than risk locking you out. While locked, the sleep screen shows a small padlock badge in the top-right corner.
 
 ## Apps
