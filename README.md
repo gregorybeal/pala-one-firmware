@@ -563,6 +563,10 @@ Please do not:
 
 The design, branding, documentation and paid project assets remain copyright © Paul Lagier.
 
+The bundled Bitter and OpenDyslexic fonts are licensed separately under the
+SIL Open Font License 1.1; see `Pala_One_2_1/bitter_OFL.txt` and
+`Pala_One_2_1/opendyslexic_OFL.txt`.
+
 ---
 
 Created by Paul Lagier

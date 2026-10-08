@@ -1,6 +1,7 @@
 #pragma once
 
-// Generated from OpenDyslexic TTF (SIL OFL) into u8g2 font arrays.
+// Generated from OpenDyslexic TTF (SIL OFL — license in opendyslexic_OFL.txt)
+// into u8g2 font arrays.
 // Glyph coverage: ASCII 0x20-0x7E.
 // Raster sizes chosen to match u8g2 Helvetica helvR08/10/12/14 pixel heights (11/14/17/20 px).
 

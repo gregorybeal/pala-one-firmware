@@ -1,6 +1,7 @@
 #pragma once
 
-// Generated from Bitter (Huerta Tipográfica, SIL OFL 1.1 — see
+// Generated from Bitter (Copyright 2011 The Bitter Project Authors, SIL OFL
+// 1.1 — license in bitter_OFL.txt; source
 // https://github.com/google/fonts/tree/main/ofl/bitter) into u8g2 font arrays.
 // Glyph coverage: ASCII 0x20-0x7E + Latin-1 0xA0-0xFF.
 // Rasterized 1-bit with the font's own TrueType hinting (wght 400 / 700 of the
