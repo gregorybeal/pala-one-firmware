@@ -90,6 +90,7 @@ static void handleSettings() {
   Font::Family curFam = Font::currentFamily();
   String famH = (curFam == Font::Family::Helvetica)    ? " selected" : "";
   String famD = (curFam == Font::Family::OpenDyslexic) ? " selected" : "";
+  String famB = (curFam == Font::Family::Bitter)       ? " selected" : "";
 
   bool curBionic   = Font::bionicEnabled();
   String bChecked  = curBionic ? " checked" : "";
@@ -130,6 +131,7 @@ static void handleSettings() {
     "<div><label for='family'>" D_WEB_FONT_FAMILY_LABEL "</label><select id='family' name='family'>"
     "<option value='helv'"; out += famH; out += ">" D_WEB_FONT_FAMILY_HELVETICA "</option>"
     "<option value='dys'";  out += famD; out += ">" D_WEB_FONT_FAMILY_DYSLEXIC  "</option>"
+    "<option value='bit'";  out += famB; out += ">" D_WEB_FONT_FAMILY_BITTER    "</option>"
     "</select><div class='hint'>" D_WEB_FONT_FAMILY_HINT "</div></div>"
     "<div><label for='sleep'>" D_WEB_SLEEP_AFTER_LABEL "</label><select id='sleep' name='sleep'>"
     "<option value='30'";   out += ss30;   out += ">" D_WEB_SLEEP_30S "</option>"
@@ -198,7 +200,9 @@ static bool applySettingsForm() {
   }
   if (server.hasArg("family")) {
     String f = server.arg("family");
-    Font::Family want = (f == "dys") ? Font::Family::OpenDyslexic : Font::Family::Helvetica;
+    Font::Family want = (f == "dys") ? Font::Family::OpenDyslexic
+                      : (f == "bit") ? Font::Family::Bitter
+                                     : Font::Family::Helvetica;
     if (want != Font::currentFamily()) { Font::setFamily(want); layoutChanged = true; }
   }
   if (server.hasArg("sleep")) {

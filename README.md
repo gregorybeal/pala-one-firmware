@@ -526,7 +526,7 @@ Return from `app_main` to exit back to the Apps menu. Apps decide their own exit
 - TXT and EPUB book support
 - Reading-progress sync with KOReader devices (kosync)
 - Adjustable font size and line spacing
-- Font family choice (Helvetica / OpenDyslexic)
+- Font family choice (Helvetica / OpenDyslexic / Bitter)
 - Bionic reading mode
 - Reading progress saving
 - Bookmarks (on-device and over the web UI)

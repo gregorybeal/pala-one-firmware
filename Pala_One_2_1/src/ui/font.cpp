@@ -8,9 +8,11 @@
 #include "src/state.h"        // prefs
 #include "src/ui/statusbar.h" // Statusbar::reserveH
 
-// OpenDyslexic u8g2 font tables. Vendored alongside the sketch (see
-// Pala_One_2_1/opendyslexic_u8g2_fonts.h). Only referenced from this file.
+// OpenDyslexic / Bitter u8g2 font tables. Vendored alongside the sketch (see
+// Pala_One_2_1/opendyslexic_u8g2_fonts.h, bitter_u8g2_fonts.h). Only
+// referenced from this file.
 #include "opendyslexic_u8g2_fonts.h"
+#include "bitter_u8g2_fonts.h"
 
 namespace Font {
 
@@ -59,6 +61,15 @@ static bool pickFaces(int sz, Family fam,
       case 12: outBody = u8g2_font_open_dys_r12_te; outBold = u8g2_font_open_dys_b12_te; return true;
       case 14: outBody = u8g2_font_open_dys_r14_te; outBold = u8g2_font_open_dys_b14_te; return true;
       default: outBody = u8g2_font_open_dys_r10_te; outBold = u8g2_font_open_dys_b10_te; return false;
+    }
+  }
+  if (fam == Family::Bitter) {
+    switch (sz) {
+      case 8:  outBody = u8g2_font_bitter_r08_te; outBold = u8g2_font_bitter_b08_te; return true;
+      case 10: outBody = u8g2_font_bitter_r10_te; outBold = u8g2_font_bitter_b10_te; return true;
+      case 12: outBody = u8g2_font_bitter_r12_te; outBold = u8g2_font_bitter_b12_te; return true;
+      case 14: outBody = u8g2_font_bitter_r14_te; outBold = u8g2_font_bitter_b14_te; return true;
+      default: outBody = u8g2_font_bitter_r10_te; outBold = u8g2_font_bitter_b10_te; return false;
     }
   }
   switch (sz) {
@@ -126,7 +137,9 @@ const LayoutMetrics& bodyLayout() {
 
 void loadSettings() {
   int famVal = prefs.getInt(kKeyFamily, 0);
-  applyFamily(famVal == 1 ? Family::OpenDyslexic : Family::Helvetica);
+  applyFamily(famVal == 1 ? Family::OpenDyslexic
+            : famVal == 2 ? Family::Bitter
+                          : Family::Helvetica);
   applyBodySize(prefs.getInt(kKeyBodySize, 10));
   applyLineGap(prefs.getInt(kKeyLineGap, 0));
   s_bionic = (prefs.getInt(kKeyBionic, 0) != 0);
@@ -144,7 +157,7 @@ void setLineGap(int gap) {
 
 void setFamily(Family fam) {
   applyFamily(fam);
-  prefs.putInt(kKeyFamily, fam == Family::OpenDyslexic ? 1 : 0);
+  prefs.putInt(kKeyFamily, (int)fam);
 }
 
 void setBionic(bool on) {
