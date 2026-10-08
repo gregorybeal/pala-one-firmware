@@ -526,7 +526,7 @@ Return from `app_main` to exit back to the Apps menu. Apps decide their own exit
 - TXT and EPUB book support
 - Reading-progress sync with KOReader devices (kosync)
 - Adjustable font size and line spacing
-- Font family choice (Helvetica / OpenDyslexic / Bitter)
+- Font family choice (Helvetica / Dyslexia-friendly / Bitter)
 - Bionic reading mode
 - Reading progress saving
 - Bookmarks (on-device and over the web UI)
@@ -565,7 +565,9 @@ The design, branding, documentation and paid project assets remain copyright © 
 
 The bundled Bitter and OpenDyslexic fonts are licensed separately under the
 SIL Open Font License 1.1; see `Pala_One_2_1/bitter_OFL.txt` and
-`Pala_One_2_1/opendyslexic_OFL.txt`.
+`Pala_One_2_1/opendyslexic_OFL.txt`. The firmware's copy of OpenDyslexic is
+converted to bitmaps, which the OFL treats as a modified version, so it is
+offered as "Dyslexia-friendly" rather than under the reserved font name.
 
 ---
 

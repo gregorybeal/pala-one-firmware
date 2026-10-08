@@ -34,6 +34,9 @@ namespace Font {
 // dyslexia; Bitter is a slab serif designed for screen reading. Tables come
 // from opendyslexic_u8g2_fonts.h / bitter_u8g2_fonts.h (vendored at the
 // sketch root). Values are persisted to NVS — append, don't renumber.
+// OpenDyslexic is a Reserved Font Name under its OFL and these bitmaps are a
+// modified version, so user-facing text calls it "Dyslexia-friendly"; the
+// identifier here is internal and keeps the source name.
 enum class Family : uint8_t { Helvetica = 0, OpenDyslexic = 1, Bitter = 2 };
 
 // Switch the active u8g2 font to the named role. After one of these, raw
