@@ -9,6 +9,13 @@ static constexpr const char* kKeyUser    = "ks_user";
 static constexpr const char* kKeyAuth    = "ks_key";
 static constexpr const char* kKeyEnabled = "ks_on";
 static constexpr const char* kKeyDevId   = "ks_devid";
+static constexpr const char* kKeyFragNum = "ks_frag";
+// Last-pull diagnostic. NVS keys are capped at 15 characters.
+static constexpr const char* kKeyLastPtr  = "ks_lptr";
+static constexpr const char* kKeyLastBook = "ks_lbook";
+static constexpr const char* kKeyLastPct  = "ks_lpct";
+static constexpr const char* kKeyLastLand = "ks_lland";
+static constexpr const char* kKeyLastOut  = "ks_lout";
 
 static constexpr const char* kDefaultUrl = "https://sync.koreader.rocks";
 
@@ -19,6 +26,7 @@ static String s_user;
 static String s_auth;
 static String s_devId;
 static bool   s_enabled = false;
+static KosyncFragmentNumbering s_fragNum = KOSYNC_FRAG_AUTO;
 
 void loadSettings() {
   s_url     = prefs.getString(kKeyUrl, kDefaultUrl);
@@ -26,6 +34,7 @@ void loadSettings() {
   s_auth    = prefs.getString(kKeyAuth, "");
   s_devId   = prefs.getString(kKeyDevId, "");
   s_enabled = prefs.getInt(kKeyEnabled, 0) != 0;
+  s_fragNum = kosyncFragmentNumberingFromInt(prefs.getInt(kKeyFragNum, 0));
 
   if (s_url.length() == 0) s_url = kDefaultUrl;
 }
@@ -66,6 +75,43 @@ void clearAccount() {
   prefs.remove(kKeyUser);
   prefs.remove(kKeyAuth);
   setEnabled(false);
+}
+
+KosyncFragmentNumbering fragmentNumbering() { return s_fragNum; }
+
+void setFragmentNumbering(KosyncFragmentNumbering mode) {
+  s_fragNum = mode;
+  prefs.putInt(kKeyFragNum, (int)mode);
+}
+
+// A crengine pointer runs to about 60 characters; the cap is generous enough
+// that a real one is never cut, and bounds what a hostile server can park in
+// NVS.
+static const unsigned kMaxPointerChars = 160;
+
+LastPull lastPull() {
+  LastPull p;
+  p.pointer = prefs.getString(kKeyLastPtr, "");
+  p.book    = prefs.getString(kKeyLastBook, "");
+  // A record with neither a pointer nor a book name was never written.
+  p.present = prefs.getInt(kKeyLastOut, -1) >= 0;
+  if (!p.present) return LastPull();
+
+  p.remotePct = prefs.getFloat(kKeyLastPct, 0.0f);
+  p.landedPct = prefs.getFloat(kKeyLastLand, 0.0f);
+  p.outcome   = prefs.getInt(kKeyLastOut, LAST_PULL_NO_POINTER);
+  return p;
+}
+
+void recordLastPull(const LastPull& p) {
+  String ptr = p.pointer;
+  if (ptr.length() > kMaxPointerChars) ptr = ptr.substring(0, kMaxPointerChars);
+
+  prefs.putString(kKeyLastPtr,  ptr);
+  prefs.putString(kKeyLastBook, p.book);
+  prefs.putFloat(kKeyLastPct,   p.remotePct);
+  prefs.putFloat(kKeyLastLand,  p.landedPct);
+  prefs.putInt(kKeyLastOut,     p.outcome);
 }
 
 String deviceId() {

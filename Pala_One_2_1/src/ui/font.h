@@ -11,7 +11,8 @@
 //
 //  Roles:
 //    Body / Bold   Regular/bold body face at the user-chosen body size
-//                  (8/10/12/14) AND family (Helvetica or OpenDyslexic).
+//                  (8/10/12/14) AND family (Helvetica, OpenDyslexic or
+//                  Bitter).
 //                  Reader text, menu rows, section headers.
 //    Toast         Helvetica regular 8 — Latin Extended (accent-capable);
 //                  used for toast text where translated strings may carry
@@ -30,9 +31,13 @@
 namespace Font {
 
 // Body face family. OpenDyslexic is the alternative face for users with
-// dyslexia; tables come from opendyslexic_u8g2_fonts.h (already vendored
-// at the sketch root).
-enum class Family : uint8_t { Helvetica = 0, OpenDyslexic = 1 };
+// dyslexia; Bitter is a slab serif designed for screen reading. Tables come
+// from opendyslexic_u8g2_fonts.h / bitter_u8g2_fonts.h (vendored at the
+// sketch root). Values are persisted to NVS — append, don't renumber.
+// OpenDyslexic is a Reserved Font Name under its OFL and these bitmaps are a
+// modified version, so user-facing text calls it "Dyslexia-friendly"; the
+// identifier here is internal and keeps the source name.
+enum class Family : uint8_t { Helvetica = 0, OpenDyslexic = 1, Bitter = 2 };
 
 // Switch the active u8g2 font to the named role. After one of these, raw
 // u8g2 calls (setCursor/print/getUTF8Width) all use the role's table.

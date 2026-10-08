@@ -63,9 +63,26 @@ bool parseXPointer(const String& s, XPointer& out);
 // writes ordinals explicitly. `count == 0` yields an empty string.
 String canonicalPath(const XPointer& xp, uint8_t count);
 
-// Compose a pointer for the map's stored form. `parentPath` is a canonical
-// path as produced by canonicalPath (or stored by the browser-side builder),
-// `leafName`/`leafOrdinal` address the block within it.
+// Render a canonical path the way crengine spells it: a step's ordinal is
+// written only when the step has same-named siblings, so `/body/div/p[2]`
+// rather than `/body[1]/div[1]/p[2]`. The map stores the explicit form
+// because that is what the parse side compares against; this is for a pointer
+// leaving the device, to be read by crengine itself.
+//
+// The two forms are equivalent by crengine's own rule, but only one of them
+// is a form crengine is known to produce, and a pointer that fails to resolve
+// on the far side takes the reader to the start of the book. Emitting what it
+// writes itself is the smaller bet.
+String crengineSpelledPath(const String& canonical);
+
+// Compose a pointer to send. `parentPath` is a canonical path as produced by
+// canonicalPath (or stored by the browser-side builder), `leafName` /
+// `leafOrdinal` address the block within it. Output uses crengine's spelling.
+//
+// `textOffset` is the trailing `.N`. Note that nothing in this firmware reads
+// it back: SyncMap::offsetForXPointer resolves to a block's start and ignores
+// the offset entirely. It is emitted as `.0` by the only caller for that
+// reason — see storage/sync_map.cpp.
 String buildXPointer(uint16_t fragment, const String& parentPath,
                      const String& leafName, uint16_t leafOrdinal,
                      uint32_t textOffset);

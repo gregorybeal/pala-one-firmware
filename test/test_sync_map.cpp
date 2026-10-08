@@ -219,11 +219,15 @@ TEST_CASE("xpointerForOffset names the block containing the offset") {
   SyncMap m;
   REQUIRE(m.open(kBookPath, kTextSize));
 
+  // crengine's spelling: implicit [1] on body and div, explicit [2] on the
+  // paragraph. See crengineSpelledPath.
   CHECK_EQ(m.xpointerForOffset(kCh1P2),
-           String("/body/DocFragment[3]/body[1]/div[1]/p[2].0"));
-  // Mid-paragraph keeps the distance from the block start.
+           String("/body/DocFragment[3]/body/div/p[2].0"));
+  // Mid-paragraph addresses the same block. The distance from the block
+  // start is deliberately not emitted — it is a byte count where crengine
+  // wants characters, and offsetForXPointer never reads it back anyway.
   CHECK_EQ(m.xpointerForOffset(kCh1P2 + 7),
-           String("/body/DocFragment[3]/body[1]/div[1]/p[2].7"));
+           String("/body/DocFragment[3]/body/div/p[2].0"));
 }
 
 TEST_CASE("xpointerForOffset prefers the deepest block at a shared offset") {
@@ -233,7 +237,7 @@ TEST_CASE("xpointerForOffset prefers the deepest block at a shared offset") {
   // The <div> and its opening <h1> both start here; the <h1> is the tighter
   // answer and is what crengine would point at.
   CHECK_EQ(m.xpointerForOffset(kCh1Start),
-           String("/body/DocFragment[3]/body[1]/div[1]/h1[1].0"));
+           String("/body/DocFragment[3]/body/div/h1.0"));
 }
 
 TEST_CASE("xpointerForOffset skips itemrefs that carry no text") {
@@ -243,7 +247,7 @@ TEST_CASE("xpointerForOffset skips itemrefs that carry no text") {
   // The linear="no" cover shares offset 0 with the nav document. Pointing at
   // the cover would address a document KOReader renders but we never stored.
   CHECK_EQ(m.xpointerForOffset(0),
-           String("/body/DocFragment[2]/body[1]/p[1].0"));
+           String("/body/DocFragment[2]/body/p.0"));
 }
 
 // ----------------------------------------------------------------------------

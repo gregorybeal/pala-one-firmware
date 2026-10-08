@@ -50,7 +50,7 @@ static void renderPage(const String& banner, bool bannerIsError) {
     D_WEB_KS_SUBTITLE,
     "<a href='/'>" D_WEB_NAV_HOME "</a><a href='/files'>" D_WEB_NAV_FILES "</a><a href='/settings'>" D_WEB_NAV_SETTINGS "</a><a href='/wifi'>" D_WEB_NAV_WIFI "</a>"
   );
-  out.reserve(out.length() + 4000);
+  out.reserve(out.length() + 6000);
 
   if (banner.length() > 0) {
     out += bannerIsError ? "<div class='banner-warn'>" : "<div class='banner-ok'>";
@@ -109,6 +109,77 @@ static void renderPage(const String& banner, bool bannerIsError) {
   }
   out += "</div>";
 
+  // --- last sync (diagnostic) ---
+  // Shown only once a sync has actually run. This is the raw material behind
+  // a wrong jump: what the server sent, and what the device made of it.
+  {
+    Kosync::LastPull lp = Kosync::lastPull();
+    if (lp.present) {
+      const char* outcome = D_WEB_KS_LAST_OUT_REJECTED;
+      switch (lp.outcome) {
+        case Kosync::LAST_PULL_NO_POINTER: outcome = D_WEB_KS_LAST_OUT_NO_PTR;  break;
+        case Kosync::LAST_PULL_NO_MAP:     outcome = D_WEB_KS_LAST_OUT_NO_MAP;  break;
+        case Kosync::LAST_PULL_OPF:        outcome = D_WEB_KS_LAST_OUT_OPF;     break;
+        case Kosync::LAST_PULL_LINEAR:     outcome = D_WEB_KS_LAST_OUT_LINEAR;  break;
+        default: break;
+      }
+
+      out += "<div class='card'><h2>" D_WEB_KS_LAST_HEADING "</h2>";
+      out += "<p class='muted'>" D_WEB_KS_LAST_INTRO "</p>";
+
+      out += "<div class='meta' style='margin-top:10px'>" D_WEB_KS_LAST_BOOK " ";
+      out += htmlEscape(lp.book.length() ? lp.book : String("-"));
+      out += "</div>";
+
+      out += "<div class='meta'>" D_WEB_KS_LAST_POINTER "</div>";
+      out += "<pre style='white-space:pre-wrap;word-break:break-all;margin:4px 0'>";
+      out += htmlEscape(lp.pointer.length() ? lp.pointer : String("-"));
+      out += "</pre>";
+
+      // Generous: the format string carries HTML entities and the Spanish
+      // wording is longer than the English. Truncating mid-entity would emit
+      // broken markup, so size for the worst case rather than the typical one.
+      char pct[192];
+      snprintf(pct, sizeof(pct), D_WEB_KS_LAST_PCT_FMT,
+               (double)(lp.remotePct * 100.0f), (double)(lp.landedPct * 100.0f));
+      out += "<div class='meta'>";
+      out += pct;
+      out += "</div>";
+
+      out += "<div class='meta'>" D_WEB_KS_LAST_OUTCOME " ";
+      out += outcome;
+      out += "</div></div>";
+    }
+  }
+
+  // --- position matching ---
+  // Its own form, posting `do=frag`, so saving it cannot disturb the account
+  // above: the save path treats a missing `on` argument as "sync off", and
+  // this form has no enable checkbox to send.
+  {
+    KosyncFragmentNumbering fn = Kosync::fragmentNumbering();
+    out += "<div class='card'><h2>" D_WEB_KS_FRAG_HEADING "</h2>";
+    out += "<p class='muted'>" D_WEB_KS_FRAG_INTRO "</p>";
+    out += "<form method='POST' action='/kosync' style='margin-top:12px'>";
+    out += "<input type='hidden' name='do' value='frag'>";
+    out += "<div><label for='frag'>" D_WEB_KS_FRAG_LABEL "</label>";
+    out += "<select id='frag' name='frag'>";
+    out += "<option value='0'";
+    out += (fn == KOSYNC_FRAG_AUTO ? " selected" : "");
+    out += ">" D_WEB_KS_FRAG_AUTO "</option>";
+    out += "<option value='1'";
+    out += (fn == KOSYNC_FRAG_OPF ? " selected" : "");
+    out += ">" D_WEB_KS_FRAG_OPF "</option>";
+    out += "<option value='2'";
+    out += (fn == KOSYNC_FRAG_LINEAR ? " selected" : "");
+    out += ">" D_WEB_KS_FRAG_LINEAR "</option>";
+    out += "</select>";
+    out += "<div class='hint'>" D_WEB_KS_FRAG_HINT "</div></div>";
+    out += "<div class='actions' style='margin-top:14px'>";
+    out += "<button type='submit'>" D_WEB_KS_SAVE_BUTTON "</button></div>";
+    out += "</form></div>";
+  }
+
   // --- per-book document ids ---
   out += "<div class='card'><h2>" D_WEB_KS_DOCS_HEADING "</h2>";
   out += "<p class='muted'>" D_WEB_KS_DOCS_INTRO "</p>";
@@ -156,6 +227,17 @@ static void handleKosyncPost() {
   if (action == "clear") {
     Kosync::clearAccount();
     renderPage(D_WEB_KS_MSG_CLEARED, false);
+    return;
+  }
+
+  // Position matching. Returns before the account handling below, which
+  // would read this form's absent `on` argument as "disable sync".
+  if (action == "frag") {
+    if (server.hasArg("frag")) {
+      Kosync::setFragmentNumbering(
+          kosyncFragmentNumberingFromInt(server.arg("frag").toInt()));
+    }
+    renderPage(D_WEB_KS_MSG_SAVED, false);
     return;
   }
 

@@ -103,6 +103,83 @@ float percentageForOffset(uint32_t offset, uint32_t fileSize);
 // to a real page boundary via findPageForOffset().
 uint32_t offsetForPercentage(float pct, uint32_t fileSize);
 
+// ----------------------------------------------------------------------------
+//  Spine numbering
+//
+//  An XPointer names its spine document as `DocFragment[N]`. crengine numbers
+//  those over the spine, but whether it counts itemrefs that carry no text (a
+//  linear="no" cover, an image-only title page) varies between builds, so the
+//  spine map stores both numberings and one of them has to be chosen. See
+//  storage/sync_map.h for the two, and the README for the user-facing setting.
+// ----------------------------------------------------------------------------
+
+enum KosyncFragmentNumbering {
+  KOSYNC_FRAG_AUTO   = 0,   // try both, let kosyncChooseFragment decide
+  KOSYNC_FRAG_OPF    = 1,   // N counts every spine itemref
+  KOSYNC_FRAG_LINEAR = 2,   // N counts only the itemrefs that carry text
+};
+
+// At most both numberings are ever in play.
+static const int KOSYNC_MAX_FRAGMENT_CANDIDATES = 2;
+
+// Anything unrecognized reads as Auto. The value arrives off the web form or
+// out of NVS, either of which can hold something this build does not know.
+KosyncFragmentNumbering kosyncFragmentNumberingFromInt(int raw);
+
+// Which numberings `mode` should resolve, in the order to try them. Writes to
+// `out` and returns the count (1 when pinned, 2 on Auto).
+int kosyncNumberingsToTry(KosyncFragmentNumbering mode,
+                          KosyncFragmentNumbering out[KOSYNC_MAX_FRAGMENT_CANDIDATES]);
+
+// Choose between resolved candidates by closeness to the percentage the
+// server sent, rejecting the lot when even the best sits further than
+// KOSYNC_XPOINTER_MAX_DELTA away. `candidatePcts` holds where each candidate
+// landed, as a fraction of our own text. Returns the winning index, or -1.
+//
+// Worth being clear about what this referee is, because it is only as good as
+// its yardstick: `remotePct` counts content the flattener drops, so it reads
+// high, and a candidate landing too far into the book can therefore score
+// better than the correct one. With one candidate — the numbering pinned —
+// the comparison degenerates to the sanity check alone, which is the point.
+int kosyncChooseFragment(const float* candidatePcts, int count, float remotePct);
+
+// ----------------------------------------------------------------------------
+//  Publishing a position
+//
+//  How far above the server's stored percentage to publish when we know
+//  structurally that we are ahead of it. Needs to survive buildProgressBody's
+//  4-decimal rounding and any comparison the server does, while staying well
+//  under KOSYNC_DEADBAND so it cannot itself look like a conflict on the next
+//  sync. 0.1 % of a book is a fraction of a page here.
+//
+//  A server that rounds percentages before comparing them would need a larger
+//  value; this is the knob to turn if a push is still refused as not-newer.
+// ----------------------------------------------------------------------------
+static const float KOSYNC_PUSH_NUDGE = 0.001f;
+
+// The percentage to put in a push.
+//
+// `localPct` is where we are on our own scale. `remoteServerPct` is the raw
+// percentage the server sent for its stored position, or negative when there
+// is no stored position to consider. `structurallyAhead` says the book's
+// spine map let us compare the two positions structurally — byte offset
+// against resolved byte offset — and ours is the later one.
+//
+// Normally the answer is just `localPct`. The exception is the case this
+// exists for: our percentage counts only the flattened text, KOReader's also
+// counts what the flattener dropped, so for the same place in the book ours
+// reads lower. A position genuinely ahead of the server's can therefore carry
+// a smaller number, and a server that only accepts increasing percentages
+// refuses it — the number contradicts the XPointer sitting beside it in the
+// same request. When the structural comparison says we are ahead, publish
+// just above the server's value so the two agree.
+//
+// At the very end of a book, where the stored value is already 1.0, there is
+// no room above it and the push will still be refused. Nothing to be done
+// about that here, and nothing lost: the pointer is what carries the position.
+float kosyncPushPercentage(float localPct, float remoteServerPct,
+                           bool structurallyAhead);
+
 enum SyncDecision {
   SYNC_IDENTICAL,      // within KOSYNC_DEADBAND — nothing to ask the user
   SYNC_REMOTE_AHEAD,   // the other device is further into the book

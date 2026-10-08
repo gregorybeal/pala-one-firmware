@@ -8,6 +8,7 @@
 #include "src/hal/wifi_provisioning.h"
 #include "src/pure/hashing.h"              // prefKeyForBook
 #include "src/pure/kosync_codec.h"
+#include "src/pure/paths.h"                // bookLeafLabel
 #include "src/pure/xpointer.h"
 #include "src/state.h"
 #include "src/storage/book_metadata.h"
@@ -42,6 +43,27 @@ float SyncScreen::currentLocalPct() const {
   // says nothing about it.)
   return percentageForOffset(pages.offsets[idx],
                              (uint32_t)g_bookview.book.size());
+}
+
+bool SyncScreen::currentLocalOffset(uint32_t& out) const {
+  if (!g_bookview.book.isOpen()) return false;
+  const PageOffsetTable& pages = g_bookview.pages;
+  int idx = g_bookview.cursor.pageIndex;
+  if (idx < 0 || idx >= pages.count) return false;
+  out = pages.offsets[idx];
+  return true;
+}
+
+float SyncScreen::pushPercentage() const {
+  // "Ahead" has to be decided structurally or not at all: with no resolved
+  // remote offset the percentages are all we have, and adjusting one against
+  // the other would be circular.
+  bool     ahead = false;
+  uint32_t here  = 0;
+  if (remoteOffsetValid_ && currentLocalOffset(here)) {
+    ahead = here > remoteOffset_;
+  }
+  return kosyncPushPercentage(localPct_, remoteServerPct_, ahead);
 }
 
 String SyncScreen::localXPointer() const {
@@ -86,6 +108,7 @@ void SyncScreen::onEnter() {
   message_      = "";
   localPct_     = currentLocalPct();
   remotePct_    = 0.0f;
+  remoteServerPct_ = -1.0f;
   remoteOffset_ = 0;
   remoteOffsetValid_ = false;
   jumpedShort_  = false;
@@ -171,8 +194,9 @@ void SyncScreen::runSync() {
     return;
   }
 
-  remotePct_    = remote.percentage;
-  remoteDevice_ = remote.device;
+  remotePct_       = remote.percentage;
+  remoteServerPct_ = remote.percentage;   // before the structural override
+  remoteDevice_    = remote.device;
 
   // Prefer the structural position when the book's spine map can resolve the
   // XPointer KOReader sent. This both removes the front-matter bias and
@@ -194,52 +218,101 @@ bool SyncScreen::resolveRemoteOffset(const KosyncRemote& remote) {
   remoteOffsetValid_ = false;
   remoteOffset_      = 0;
 
-  if (!g_bookview.book.isOpen()) return false;
+  // Diagnostic record for the web UI, written on every path out of here so a
+  // failed resolve is as visible as a successful one. Defaults describe the
+  // percentage-only case; the branches below refine it.
+  Kosync::LastPull diag;
+  diag.present   = true;
+  diag.book      = g_bookview.book.isOpen()
+                     ? bookLeafLabel(g_bookview.book.path())
+                     : String("");
+  diag.pointer   = remote.progress;
+  diag.remotePct = remote.percentage;
+  diag.outcome   = Kosync::LAST_PULL_NO_POINTER;
+  diag.landedPct = remote.percentage;
+
+  if (!g_bookview.book.isOpen()) { Kosync::recordLastPull(diag); return false; }
 
   XPointer xp;
-  if (!parseXPointer(remote.progress, xp)) return false;   // percentage, not a pointer
-
-  uint32_t size = (uint32_t)g_bookview.book.size();
-  if (size == 0) return false;
-
-  SyncMap map;
-  if (!map.open(g_bookview.book.path(), size)) return false;
-
-  // crengine numbers DocFragments over the spine; whether it counts itemrefs
-  // marked linear="no" is not knowable from here, so resolve both ways and
-  // keep whichever lands closer to the percentage the server sent with it.
-  const SyncMap::FragmentMode kModes[2] = {
-    SyncMap::FragmentMode::Opf,
-    SyncMap::FragmentMode::Linear
-  };
-
-  bool     have       = false;
-  float    bestDelta  = 0.0f;
-  uint32_t bestOffset = 0;
-
-  for (int i = 0; i < 2; i++) {
-    uint32_t off = 0;
-    if (!map.offsetForXPointer(xp, kModes[i], off)) continue;
-
-    float delta = percentageForOffset(off, size) - remote.percentage;
-    if (delta < 0.0f) delta = -delta;
-    if (!have || delta < bestDelta) {
-      have       = true;
-      bestDelta  = delta;
-      bestOffset = off;
-    }
+  if (!parseXPointer(remote.progress, xp)) {
+    // A percentage string, not a pointer — KOReader sends one for paged
+    // documents, and so did this firmware's own older push path.
+    Kosync::recordLastPull(diag);
+    return false;
   }
 
-  if (!have || bestDelta > KOSYNC_XPOINTER_MAX_DELTA) return false;
+  uint32_t size = (uint32_t)g_bookview.book.size();
+  if (size == 0) { Kosync::recordLastPull(diag); return false; }
 
-  remoteOffset_      = bestOffset;
+  // Past this point the pointer parsed, so anything that still fails to
+  // resolve is a rejection rather than an absent pointer.
+  diag.outcome = Kosync::LAST_PULL_REJECTED;
+
+  SyncMap map;
+  if (!map.open(g_bookview.book.path(), size)) {
+    // No spine map, or one stamped for different text: percentage fallback,
+    // and the numbering setting has nothing to act on. Distinct from a
+    // rejection because the fix is different — re-upload the book.
+    diag.outcome = Kosync::LAST_PULL_NO_MAP;
+    Kosync::recordLastPull(diag);
+    return false;
+  }
+
+  // crengine numbers DocFragments over the spine; whether it counts itemrefs
+  // marked linear="no" is not knowable from here. It is knowable from the
+  // other end, though — it is a property of the KOReader build, identical for
+  // every book — so when the user has pinned it we resolve that way and only
+  // that way.
+  //
+  // On Auto we resolve both and keep whichever lands closer to the percentage
+  // the server sent. Note what that referee is: KOReader's percentage counts
+  // content the flattener drops, so it reads high, and a candidate that lands
+  // too far into the book can score better than the correct one. It picks
+  // right on a book with little front matter and can pick wrong on a book
+  // with a lot. Kosync::FragmentNumbering is the way out of the guess.
+  KosyncFragmentNumbering want[KOSYNC_MAX_FRAGMENT_CANDIDATES];
+  int wantCount = kosyncNumberingsToTry(Kosync::fragmentNumbering(), want);
+
+  // Resolve each numbering the setting asked for, then let the pure referee
+  // pick. Candidates that the map could not resolve at all are dropped here
+  // rather than passed along, so the indices the referee returns address
+  // `offsets`, not `want`.
+  uint32_t offsets[KOSYNC_MAX_FRAGMENT_CANDIDATES];
+  float    pcts[KOSYNC_MAX_FRAGMENT_CANDIDATES];
+  KosyncFragmentNumbering used[KOSYNC_MAX_FRAGMENT_CANDIDATES];
+  int      count = 0;
+
+  for (int i = 0; i < wantCount; i++) {
+    SyncMap::FragmentMode mode = (want[i] == KOSYNC_FRAG_LINEAR)
+                                   ? SyncMap::FragmentMode::Linear
+                                   : SyncMap::FragmentMode::Opf;
+    uint32_t off = 0;
+    if (!map.offsetForXPointer(xp, mode, off)) continue;
+    offsets[count] = off;
+    pcts[count]    = percentageForOffset(off, size);
+    used[count]    = want[i];
+    count++;
+  }
+
+  int pick = kosyncChooseFragment(pcts, count, remote.percentage);
+  if (pick < 0) {
+    Kosync::recordLastPull(diag);
+    return false;
+  }
+
+  remoteOffset_      = offsets[pick];
   remoteOffsetValid_ = true;
-  remotePct_         = percentageForOffset(bestOffset, size);
+  remotePct_         = pcts[pick];
+
+  diag.outcome   = (used[pick] == KOSYNC_FRAG_LINEAR) ? Kosync::LAST_PULL_LINEAR
+                                                      : Kosync::LAST_PULL_OPF;
+  diag.landedPct = pcts[pick];
+  Kosync::recordLastPull(diag);
   return true;
 }
 
 void SyncScreen::pushLocal() {
-  Kosync::CallResult r = Kosync::push(docHex_, localPct_, localXPointer());
+  Kosync::CallResult r = Kosync::push(docHex_, pushPercentage(), localXPointer());
   if (r.result == Kosync::Result::Ok) {
     phase_ = Phase::Pushed;
   } else {
@@ -295,7 +368,10 @@ void SyncScreen::applyRemotePosition() {
   // backwards. Leaving the server alone keeps the real position recoverable.
   localPct_ = currentLocalPct();
   if (!jumpedShort_) {
-    Kosync::push(docHex_, localPct_, localXPointer());
+    // Same policy as pushLocal, though it changes nothing here: having just
+    // adopted the remote position we are level with it, not ahead, so
+    // pushPercentage() returns the measured value.
+    Kosync::push(docHex_, pushPercentage(), localXPointer());
   }
 
   phase_ = Phase::Jumped;

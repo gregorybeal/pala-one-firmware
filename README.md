@@ -199,7 +199,11 @@ the EPUB is uploaded, and stored beside the book as `sm_<hash>.bin`:
 - **KOReader → Pala** decodes the XPointer against the map and lands on the
   paragraph KOReader is on, not on a proportional guess.
 - **Pala → KOReader** composes an XPointer for the current page, so the reverse
-  direction is structural too.
+  direction is structural too. It addresses the paragraph rather than a
+  position inside it, and is written the way crengine spells a pointer
+  itself — a pointer the far side cannot resolve sends that reader to the
+  start of the book, which is a far worse outcome than landing at the top of
+  the right paragraph.
 
 The map is derived data, not configuration: it is generated automatically at
 upload, needs no setup, and is deleted and renamed along with the book. Novels
@@ -211,6 +215,56 @@ back to matching by **percentage**. That is the older behaviour and it is only
 proportional: expect to land within a page or two, and biased late, because
 KOReader's percentage counts front matter and other content the flattener drops.
 Re-upload a book to give it a map.
+
+### Chapter numbering (Sync → Position matching)
+
+An XPointer names its spine document by number: `DocFragment[11]`. crengine
+counts those over the book's spine, but whether it counts entries that carry no
+text — a `linear="no"` cover, an image-only title page — differs between builds
+and cannot be determined from the device. Guess wrong and a pulled position
+lands a **fixed number of chapters ahead** of where you were, one chapter per
+uncounted entry before it.
+
+The map therefore stores both numberings, and **Sync → Position matching** picks
+between them:
+
+- **Auto** (default) resolves the pointer both ways and keeps whichever lands
+  closer to the percentage the server sent alongside it.
+- **Count every spine entry** and **Count only entries with text** pin one
+  numbering and use it alone.
+
+Auto is right on most books but not all: KOReader's percentage counts content
+the flattener drops, so it always reads a little high, and where that bias
+exceeds half the distance between the two candidates the wrong one scores
+better. Front-matter-heavy books are where it shows.
+
+Which numbering is correct is a property of your KOReader build rather than of
+any one book, so it is the same answer every time. If a sync lands you in the
+wrong chapter, try each of the other two settings once and leave it there.
+Books with no spine map sync by percentage and ignore the setting entirely.
+
+**Sync → Last sync** shows what the previous sync actually received — the raw
+position string from the server, the percentage that came with it, where the
+device decided that was, and which of the two numberings it used (or that it
+fell back to percentage, and why). Read it after a sync that lands wrong: it
+says whether the numbering setting is the thing to change, or whether the book
+simply has no spine map and needs re-uploading.
+
+### Publishing a position back
+
+The percentage the device reports is a fraction of the *flattened* text, while
+KOReader's counts everything it renders — so for the same place in a book the
+device's number is the smaller one. A sync server that only accepts an
+increasing percentage will therefore refuse a push from a position that is
+genuinely further on, because the number contradicts the XPointer sent beside
+it in the same request.
+
+Where the spine map lets the two positions be compared structurally and the
+device's is the later one, it publishes just above the value the server holds
+rather than its own smaller measurement. The XPointer is unchanged and remains
+what carries the position; only the approximation beside it is adjusted, and
+only far enough to stop it saying the opposite. With no map to compare
+through, the measured value is sent as-is.
 
 ### Known limitations
 
@@ -226,6 +280,9 @@ Re-upload a book to give it a map.
   falls back to the fragment start; a resolved position that lands more than
   25 % away from the percentage the server sent alongside it is rejected
   outright rather than trusted.
+- **Which spine numbering KOReader used is a setting, not a deduction.** Auto
+  infers it per sync from a percentage that is biased late; see *Chapter
+  numbering* above for when that misfires and how to pin it.
 - **There is no clock on the device** (no NTP, no RTC date), so "which side is
   newer" cannot be decided automatically. That is why a difference always
   prompts rather than resolving itself.
@@ -240,6 +297,13 @@ Locking is a remappable button action. In the web UI under **Settings → Button
 - **Long press** → Bookmark
 - **Very-long press** (≥ 2 s) → Lock device
 - **Click-hold** → Menu
+
+On the library screen the hold gestures are not remappable and always lock:
+bookmarking and the reader menu mean nothing there, so both a **long press**
+and a **very-long press** engage the lock and sleep. Click-hold is excluded on
+purpose — short presses walk the list, so a click-then-hold is what a slightly
+slow final press looks like while scrolling, and locking on that would be too
+easy an accident.
 
 So by default you lock with a very-long press. Unlocking is intentionally **permissive**: *any* long, very-long, or click-hold press unlocks the device and shows an "Unlocked" toast — after a deep-sleep wake the firmware can't reconstruct a specific chord, so it accepts any hold gesture rather than risk locking you out. While locked, the sleep screen shows a small padlock badge in the top-right corner.
 
@@ -462,7 +526,7 @@ Return from `app_main` to exit back to the Apps menu. Apps decide their own exit
 - TXT and EPUB book support
 - Reading-progress sync with KOReader devices (kosync)
 - Adjustable font size and line spacing
-- Font family choice (Helvetica / OpenDyslexic)
+- Font family choice (Helvetica / Dyslexia-friendly / Bitter)
 - Bionic reading mode
 - Reading progress saving
 - Bookmarks (on-device and over the web UI)
@@ -498,6 +562,12 @@ Please do not:
 - commercially redistribute modified versions of paid assets
 
 The design, branding, documentation and paid project assets remain copyright © Paul Lagier.
+
+The bundled Bitter and OpenDyslexic fonts are licensed separately under the
+SIL Open Font License 1.1; see `Pala_One_2_1/bitter_OFL.txt` and
+`Pala_One_2_1/opendyslexic_OFL.txt`. The firmware's copy of OpenDyslexic is
+converted to bitmaps, which the OFL treats as a modified version, so it is
+offered as "Dyslexia-friendly" rather than under the reserved font name.
 
 ---
 

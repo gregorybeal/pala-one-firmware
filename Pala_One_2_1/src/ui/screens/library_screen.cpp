@@ -7,6 +7,7 @@
 #include "src/storage/library.h"
 #include "src/storage/list_items.h"       // listHasVisibleItems
 #include "src/ui/font.h"
+#include "src/ui/lock.h"                  // Lock::engage on a hold gesture
 #include "src/ui/reader.h"
 #include "src/ui/screens/about_screen.h"
 #include "src/ui/screens/apps_screen.h"
@@ -17,6 +18,7 @@
 #include "src/ui/screens/reader_screen.h"
 #include "src/ui/screens/statistics_screen.h"
 #include "src/ui/screens/upload_screen.h"
+#include "src/ui/sleep.h"                 // Sleep::enter after locking
 #include "src/ui/widgets.h"
 
 // ============================================================================
@@ -196,6 +198,25 @@ void LibraryScreen::draw() {
 
 void LibraryScreen::onButton(const ButtonEvent& e) {
   if (!e.any()) return;
+
+  // A hold locks the device, same as ACTION_LOCK does in the reader: persist
+  // the flag, then sleep. On wake the main loop sees Lock::isLocked() and
+  // swallows input until an unlock gesture.
+  //
+  // Not routed through the reader's gesture bindings. Those choose between
+  // bookmark, menu and lock, and neither of the other two means anything
+  // here — so both single-hold gestures lock rather than one of them being
+  // inert. VeryLong is included because it is the reader's out-of-box lock
+  // gesture and doing nothing on this screen would be the surprise.
+  //
+  // ClickHold is deliberately left out. Short presses walk the list, so a
+  // click-then-hold is what a slightly slow final press looks like while
+  // scrolling, and locking the device on that would be an easy accident.
+  if (e.kind == ButtonEvent::Long || e.kind == ButtonEvent::VeryLong) {
+    Lock::engage();
+    Sleep::enter();   // does not return
+    return;
+  }
 
   if (e.kind == ButtonEvent::Short) {
     if (s_entryCount > 0) {
